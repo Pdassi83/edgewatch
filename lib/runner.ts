@@ -27,7 +27,7 @@ export async function run(){return mutate(async s=>{const now=Date.now();if(s.pa
  while(w.pending.signatures.length){
   const signature=w.pending.signatures[0];
   if(!s.signals.some(x=>x.wallet===w.address&&x.signature===signature)){
-   const tx=await api.rpc('getTransaction',[signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:0,commitment:'finalized'}]);
+   const tx=await api.rpc('getTransaction',[signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
    if(!tx)throw Error('Transação ainda indisponível; ciclo será retomado');
    const signal=parseTx(tx,w.address,signature);s.signals.push(signal);w.observed++;if(signal.side!=='ignore'){w.swaps++;w.validatedAt=Date.now();w.status='Swap compatível confirmado';}else{log(s,`${signature.slice(0,10)}: ignorada; ${signal.reason}`);if(!w.swaps)w.status='Sem swaps suportados';}
    // An observed signal is never replayed, including after a partial virtual simulation.
@@ -58,7 +58,7 @@ export async function discover(s:State,api:Providers){
   if(s.wallets.length>=s.config.maxTraders)break;
   let reason='Transação falhada na origem';let candidates:Signal[]=[];
   if(!item.err){
-   const tx=await api.rpc('getTransaction',[item.signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:0,commitment:'finalized'}]);
+   const tx=await api.rpc('getTransaction',[item.signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
    if(!tx)throw Error('Transação de descoberta ainda indisponível');
    candidates=candidateSignals(tx,item.signature);reason='Nenhum signatário com swap SOL/USDC suportado';
   }

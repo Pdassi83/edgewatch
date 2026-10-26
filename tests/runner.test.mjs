@@ -27,7 +27,7 @@ const wallets=['11111111111111111111111111111111',SOL,USDC];
 function swap(address,side='buy'){
  const balance=(mint,amount,index)=>({mint,owner:address,accountIndex:index,uiTokenAmount:{amount:String(amount),decimals:6}});
  const pre=[balance(SOL,1000000,0),balance(USDC,200000000,1)],post=[balance(SOL,2000000,0),balance(USDC,100000000,1)];
- return {blockTime:Math.floor(Date.now()/1000),transaction:{message:{accountKeys:[{pubkey:JUP,signer:true},{pubkey:address,signer:true}],instructions:[{programId:JUP}]}},meta:{err:null,preTokenBalances:side==='buy'?pre:post,postTokenBalances:side==='buy'?post:pre,innerInstructions:[]}};
+ return {version:1,blockTime:Math.floor(Date.now()/1000),transaction:{message:{transactionConfig:{computeUnitLimit:200000,priorityFee:50000},accountKeys:[{pubkey:JUP,signer:true},{pubkey:address,signer:true}],instructions:[{programId:JUP}]}},meta:{err:null,preTokenBalances:side==='buy'?pre:post,postTokenBalances:side==='buy'?post:pre,innerInstructions:[]}};
 }
 test('descoberta identifica dono do swap e rejeita pagador sem saldos',()=>{
  const signals=candidateSignals(swap(wallets[0]),'proof');assert.deepEqual(signals.map(x=>x.wallet),[wallets[0]]);
@@ -52,7 +52,7 @@ test('descoberta respeita orçamento restante e agrega motivos de rejeição',as
 });
 const simulationSource=fs.readFileSync('lib/runner.ts','utf8').replace("import {Providers} from './providers';",`class Providers {
  calls=0;constructor(s){this.s=s}
- async rpc(method,params){if(method==='getSlot')return 1;if(method==='getSignaturesForAddress')return [{signature:globalThis.simSide}, {signature:this.s.wallets[0].cursor}];return globalThis.swapFixture(this.s.wallets[0].address,globalThis.simSide)}
+ async rpc(method,params){if(method==='getSlot')return 1;if(method==='getSignaturesForAddress')return [{signature:globalThis.simSide}, {signature:this.s.wallets[0].cursor}];if(params[1]?.maxSupportedTransactionVersion!==1)throw Error('RPC -32015 fixture');return globalThis.swapFixture(this.s.wallets[0].address,globalThis.simSide)}
  async market(){return {sol:100,usdcUsd:1,eurPerUsd:1,time:Date.now(),fxDate:'2026-10-26'}}
  async feeSol(){return .00005}
  async quote(input,output,amount){return {outAmount:input==='${USDC}'?String(Math.floor(Number(amount)*10)):String(Math.floor(Number(amount)/10))}}
@@ -62,4 +62,13 @@ test('sinal reconhecido posterior à descoberta abre e fecha posições apenas v
  globalThis.simState=initial();simState.config.maxTraders=1;simState.wallets=[{address:wallets[0],added:Date.now()-3600000,cursor:'discovery',observed:1,swaps:1,gap:true,status:'Em observação'}];globalThis.swapFixture=swap;globalThis.simSide='buy';
  await simulateRun();assert.equal(simState.portfolios[0].trades.length,1);assert.equal(simState.portfolios[0].trades[0].side,'buy');assert.equal(simState.portfolios[1].trades.length,0);assert.equal(simState.portfolios[2].trades.length,1);
  simState.lastRun=Date.now()-3600001;globalThis.simSide='sell';await simulateRun();assert.equal(simState.portfolios[0].trades.length,2);assert.equal(simState.portfolios[0].positions.length,0);assert(simState.portfolios[0].trades[1].pnl<0);assert.equal(simState.portfolios[1].trades.length,0);
+});
+
+test('descoberta lê v1 e preserva evidência histórica sem criar ordens',async()=>{
+ const s=initial();const api={calls:0,async rpc(method,params){
+  if(method==='getSignaturesForAddress')return [{signature:'v1-proof'}];
+  if(params[1]?.maxSupportedTransactionVersion!==1)throw Error('RPC -32015 fixture');
+  assert.equal(params[1].encoding,'jsonParsed');return swap(wallets[0]);
+ }};
+ await discover(s,api);assert.equal(s.wallets.length,1);assert.equal(s.signals[0].side,'buy');assert.equal(s.portfolios.length,0);
 });
