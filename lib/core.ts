@@ -5,9 +5,9 @@ export type Signal={signature:string;wallet:string;time:number;detected:number;s
 export type Position={wallet:string;qty:number;cost:number;opened:number};
 export type Trade={id:string;strategy:string;wallet:string;signature:string;side:string;time:number;sourceTime:number;detected:number;qty:number;price:number;originalPrice:number|null;cost:number;slippage:number;pnl:number|null;reason:string;quote:unknown};
 export type Portfolio={id:string;label:string;cash:number;positions:Position[];peak:number;day:string;week:string;dayStart:number;weekStart:number;halted:boolean;losses:Record<string,number>;trades:Trade[];series:{time:number;equity:number}[]};
-export type Wallet={address:string;added:number;cursor:string|null;status:string;observed:number;swaps:number;gap:boolean;pending?:{signatures:string[];historical:boolean}};
+export type Wallet={address:string;added:number;cursor:string|null;status:string;observed:number;swaps:number;gap:boolean;validatedAt?:number;pending?:{signatures:string[];historical:boolean}};
 export type Config={capital:number;interval:number;maxTraders:number;perTrade:number;perTrader:number;perAsset:number;daily:number;weekly:number;drawdown:number;slippageBps:number;maxImpact:number;maxAge:number};
-export type State={created:number;config:Config;paused:boolean;wallets:Wallet[];signals:Signal[];portfolios:Portfolio[];logs:{time:number;message:string}[];lastRun:number|null;lastSuccess:number|null;status:string;market:{sol:number;eurPerUsd:number;fxDate:string;time:number;usdcUsd:number}|null;benchmark:{qty:number;cost:number;time:number}|null;calls:number;callDay:string;runCount:number;providerLimits?:Record<string,{until:number;failures:number}>};
+export type State={created:number;config:Config;paused:boolean;wallets:Wallet[];signals:Signal[];portfolios:Portfolio[];logs:{time:number;message:string}[];lastRun:number|null;lastSuccess:number|null;status:string;market:{sol:number;eurPerUsd:number;fxDate:string;time:number;usdcUsd:number}|null;benchmark:{qty:number;cost:number;time:number}|null;calls:number;callDay:string;runCount:number;discovery?:{seen:string[];scanned:number;rejected:number;lastScan:number;reasons:Record<string,number>};providerLimits?:Record<string,{until:number;failures:number}>};
 export function initial():State {return {created:Date.now(),config:{capital:100,interval:60,maxTraders:3,perTrade:10,perTrader:20,perAsset:30,daily:2,weekly:5,drawdown:10,slippageBps:50,maxImpact:1,maxAge:900},paused:false,wallets:[],signals:[],portfolios:[],logs:[],lastRun:null,lastSuccess:null,status:'Por iniciar',market:null,benchmark:null,calls:0,callDay:'',runCount:0};}
 export function log(s:State,message:string){s.logs.push({time:Date.now(),message});}
 export function initPortfolios(s:State){if(s.portfolios.length)return;for(const [id,label] of [['simple','Cópia simples'],['consistent','Consistência'],['two-loss','Pausa após 2 perdas']])s.portfolios.push({id,label,cash:s.config.capital,positions:[],peak:s.config.capital,day:'',week:'',dayStart:s.config.capital,weekStart:s.config.capital,halted:false,losses:{},trades:[],series:[]});}
@@ -26,7 +26,7 @@ export function parseTx(tx:any,wallet:string,signature:string,detected=Date.now(
  const delta:Record<string,number>={};
  for(const [balances,sign] of [[ownBefore,-1],[ownAfter,1]] as const)for(const b of balances){const v=Number(b.uiTokenAmount.amount)/10**b.uiTokenAmount.decimals;delta[b.mint]=(delta[b.mint]||0)+sign*v;}
  const changed=Object.entries(delta).filter(([,v])=>Math.abs(v)>1e-9);
- if(changed.length!==2||!delta[SOL]||!delta[USDC]||delta[SOL]*delta[USDC]>=0)return result;
+ if(changed.length!==2||!delta[SOL]||!delta[USDC]||delta[SOL]*delta[USDC]>=0){result.reason=changed.length===0?'Sem alteração dos saldos SPL da carteira': 'Par ou fluxos fora do swap SOL/USDC suportado';return result;}
  // Reject direct native transfers and LP/complex instructions rather than infer a swap from net balances alone.
  if(ix.some((i:any)=>i.program==='system'&&i.parsed?.type==='transfer'&&(i.parsed?.info?.source===wallet||i.parsed?.info?.destination===wallet))){result.reason='Fluxos SOL adicionais: operação ambígua';return result;}
  result.side=delta[SOL]>0?'buy':'sell';result.originalPrice=Math.abs(delta[USDC]/delta[SOL]);result.reason='Swap Jupiter SOL embrulhado/USDC confirmado por saldos';return result;
@@ -41,3 +41,13 @@ export function buy(p:Portfolio,c:Config,signal:Signal,qty:number,spend:number,f
  if(p.trades.some(t=>t.signature===signal.signature&&t.wallet===signal.wallet))return false;
  p.cash-=spend+fee;p.positions.push({wallet:signal.wallet,qty,cost:spend+fee,opened:now});p.trades.push({id:`${p.id}:${signal.wallet}:${signal.signature}`,strategy:p.id,wallet:signal.wallet,signature:signal.signature,side:'buy',time:now,sourceTime:signal.time,detected:signal.detected,qty,price:spend/qty,originalPrice:signal.originalPrice,cost:fee,slippage:c.slippageBps,pnl:null,reason:'Compra virtual ao preço de cotação posterior à deteção',quote});return true;}
 export function sell(p:Portfolio,signal:Signal,proceeds:number,fee:number,quote:unknown,now:number,slippage:number){const positions=p.positions.filter(x=>x.wallet===signal.wallet),qty=positions.reduce((a,x)=>a+x.qty,0),cost=positions.reduce((a,x)=>a+x.cost,0);if(qty<=0||!Number.isFinite(proceeds)||proceeds<=0||!Number.isFinite(fee)||fee<0||p.cash+proceeds<fee||p.trades.some(t=>t.signature===signal.signature&&t.wallet===signal.wallet))return false;const pnl=proceeds-fee-cost;p.cash+=proceeds-fee;p.positions=p.positions.filter(x=>x.wallet!==signal.wallet);p.losses[signal.wallet]=pnl<0?(p.losses[signal.wallet]||0)+1:0;p.trades.push({id:`${p.id}:${signal.wallet}:${signal.signature}`,strategy:p.id,wallet:signal.wallet,signature:signal.signature,side:'sell',time:now,sourceTime:signal.time,detected:signal.detected,qty,price:proceeds/qty,originalPrice:signal.originalPrice,cost:fee,slippage,pnl,reason:'Saída total na primeira venda observada do trader',quote});return true;}
+
+// A signer is only a candidate when its own balances prove a supported swap.
+export function candidateSignals(tx:any,signature:string):Signal[]{
+ const signers=[...new Set<string>((tx?.transaction?.message?.accountKeys||[]).filter((k:any)=>k.signer&&validAddress(k.pubkey)).map((k:any)=>k.pubkey))];
+ return signers.map(address=>parseTx(tx,address,signature)).filter(signal=>signal.side!=='ignore');
+}
+export function ignoredReasons(signals:Signal[]){
+ const counts:Record<string,number>={};for(const signal of signals)if(signal.side==='ignore')counts[signal.reason]=(counts[signal.reason]||0)+1;
+ return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+}
