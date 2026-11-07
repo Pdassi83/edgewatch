@@ -2,6 +2,16 @@
 
 Aplicação TypeScript / React / Vinext em Cloudflare Workers, com D1 persistente e acesso privado gerido por Sites. Paper trading apenas. Nenhum código de assinatura, envio de transações ou ligação de carteira.
 
+Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
+
+## Diagnóstico e exportação para análise
+
+O separador **Diagnóstico** e o `status` MCP mostram antiguidade da recolha e da receção de preços separadamente, filas/lacunas, rejeições por estratégia, custos explícitos estimados, perdas e drawdown observado nos snapshots. Dados de origem são reais; operações, resultados e benchmark são exclusivamente virtuais. A idade do preço na origem e a cobertura total da blockchain continuam desconhecidas.
+
+`GET /api/diagnostics` lê um snapshot persistido, sem chamadas às fontes nem alterações ao estado. `GET /api/diagnostics?export=1` descarrega JSON com `schemaVersion: 1`, métricas, observações e operações virtuais. Usa a mesma proteção privada do Sites e `Cache-Control: no-store`. Contém apenas o registo ativo; não substitui o exportador de arquivo da produção. Não partilhar exportações privadas num repositório público.
+
+Os novos sinais recebem `audit` com código do parser, evidência selecionada e decisões por estratégia. Pausa, intervalo mínimo, regras de consistência, risco, custos e estratégias conservam-se. Os limites de idade existentes são reaplicados depois da espera pela cotação. Os campos novos são opcionais e não exigem migração; sinais anteriores não recebem decisões reconstruídas.
+
 ## Estado e âmbito
 
 MVP experimental: descoberta de um signatário de atividade Jupiter, adição manual de até três carteiras, recolha limitada de transações finalizadas, interpretação conservadora SOL embrulhado/USDC, cotações Jupiter posteriores à deteção, três carteiras virtuais, limites de risco, diário e exportação JSON. Nenhuma operação é fabricada para preencher a interface.
@@ -26,7 +36,7 @@ Não cumpre ainda todos os critérios do caderno de encargos: ranking de rentabi
 
 ## Orçamento e retenção
 
-Limites locais: 36 pedidos JSON/ciclo + 1 pedido BCE, 1500 pedidos JSON/dia, 3 carteiras, intervalo mínimo 60 min por defeito. Pausa com 1500 sinais, 6000 logs ou 2000 snapshots/estratégia; não elimina histórico para caber. O limite é verificado no início do ciclo, podendo acrescentar um último lote. Pode terminar a experiência antes de 60 dias se a atividade for elevada. Exportar JSON semanalmente.
+Limites locais desta base GitHub: 36 pedidos/ciclo e 1500 pedidos/dia UTC, incluindo o pedido BCE em ambos os contadores; 3 carteiras, intervalo mínimo 60 min por defeito. Pausa com 1500 sinais ativos (incluindo ignorados), 6000 logs ou 2000 snapshots/estratégia; não elimina histórico para caber. O limite é verificado no início do ciclo, podendo acrescentar um último lote. Pode terminar a experiência antes de 60 dias se a atividade for elevada. Exportar JSON semanalmente. A produção tem arquivo e contagens posteriores; ver a auditoria antes de comparar estes limites com totais históricos.
 
 Planos públicos consultados em 24-10-2026:
 - Cloudflare Workers Free: 100 mil pedidos/dia; CPU 10 ms. D1 Free: 5 milhões linhas lidas/dia, 100 mil escritas/dia, 5 GB. Limites de CPU exigem teste em alojamento próprio; não presumir equivalência com o runtime Sites.

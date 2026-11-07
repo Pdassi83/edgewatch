@@ -36,3 +36,20 @@ test('orçamento de ciclo recusa antes de fetch sem ultrapassar contagem',async(
 test('RPC 429 em HTTP 200 também abre cooldown',async()=>{
  const old=global.fetch;global.fetch=async()=>Response.json({error:{code:429}});try{const s=initial();await assert.rejects(new Providers(s).rpc('getSlot'),/429/);assert(s.providerLimits['solana-rpc.publicnode.com'].until>Date.now())}finally{global.fetch=old}
 });
+
+test('rejeições da cotação expõem códigos distintos sem persistir a resposta externa',async()=>{
+ const old=global.fetch;
+ const valid={inputMint:USDC,outputMint:SOL,inAmount:'1000000',outAmount:'2000',priceImpactPct:'0.01',routePlan:[{}]};
+ try{
+  for(const [change,code] of [[{inputMint:'synthetic-other'},'quote_mismatch'],[{routePlan:[]},'quote_invalid_route'],[{priceImpactPct:'2'},'quote_impact'],[{outAmount:'NaN'},'quote_invalid_response'],[{expireAt:'2000-01-01T00:00:00Z'},'quote_expired']]){
+   global.fetch=async()=>Response.json({...valid,...change,privateMessage:'synthetic-do-not-record'});
+   await assert.rejects(new Providers(initial()).quote(USDC,SOL,'1000000'),error=>{assert.equal(error.code,code);assert(!JSON.stringify(error).includes('synthetic-do-not-record'));return true;});
+  }
+ }finally{global.fetch=old;}
+});
+
+test('metadados do preço preservam blockId e não inventam idade na origem nem pedidos adicionais',async()=>{
+ const old=global.fetch;let calls=0;
+ global.fetch=async url=>{calls++;if(url.includes('/price/v3'))return Response.json({[SOL]:{usdPrice:100,blockId:123},[USDC]:{usdPrice:1,blockId:122}});return new Response(`<Cube time="${new Date().toISOString().slice(0,10)}"><Cube currency="USD" rate="1.1"/></Cube>`);};
+ try{const s=initial(),p=new Providers(s),m=await p.market();assert.deepEqual(m.sourceBlocks,{sol:123,usdc:122});assert.equal(m.upstreamTime,undefined);assert.equal(calls,2);assert.equal(p.calls,2);assert.equal(s.calls,2);}finally{global.fetch=old;}
+});

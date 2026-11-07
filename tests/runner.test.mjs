@@ -2,7 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {initial,initPortfolios,SOL,USDC,JUP,candidateSignals,ignoredReasons} from '../lib/core.ts';
 const encode=s=>'data:text/javascript;base64,'+Buffer.from(ts.transpile(s,{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext})).toString('base64');
 const core=encode(fs.readFileSync('lib/core.ts','utf8'));
-const source=fs.readFileSync('lib/runner.ts','utf8').replace("import {Providers} from './providers';","class Providers { constructor(s){this.s=s} async rpc(){globalThis.rpcCalls++;throw Error('HTTP 429 fixture');} }").replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.testState);const readState=async()=>globalThis.testState;").replace("from './core'",`from '${core}'`);
+const observability=encode(fs.readFileSync('lib/observability.ts','utf8').replace("from './core'",`from '${core}'`));
+const source=fs.readFileSync('lib/runner.ts','utf8').replace("import {Providers} from './providers';","class Providers { constructor(s){this.s=s} async rpc(){globalThis.rpcCalls++;throw Error('HTTP 429 fixture');} }").replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.testState);const readState=async()=>globalThis.testState;").replace("from './observability'",`from '${observability}'`).replace("from './core'",`from '${core}'`);
 const {run,discover}=await import(encode(source));
 test('tarefa agendada respeita pausa sem chamar fontes',async()=>{globalThis.testState={...initial(),paused:true};globalThis.rpcCalls=0;await run();assert.equal(globalThis.rpcCalls,0);assert.equal(globalThis.testState.lastRun,null)});
 test('execução repetida antes do intervalo não duplica recolha',async()=>{globalThis.testState={...initial(),lastRun:Date.now()};globalThis.rpcCalls=0;await run();assert.equal(globalThis.rpcCalls,0)});
@@ -13,7 +14,7 @@ const resumeSource=fs.readFileSync('lib/runner.ts','utf8').replace("import {Prov
  async rpc(method,params){globalThis.methods.push([method,params]);if(method==='getSlot')return 1;if(method==='getSignaturesForAddress')return ['d','c','b','a'].map(signature=>({signature}));
  if(params[0]==='b'&&globalThis.failBatch)throw Error('HTTP 429 fixture');return {blockTime:Math.floor(Date.now()/1000)};}
  async market(){throw Error('fixture market unavailable')}
-}`).replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.batchState);const readState=async()=>globalThis.batchState;").replace("from './core'",`from '${core}'`);
+}`).replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.batchState);const readState=async()=>globalThis.batchState;").replace("from './observability'",`from '${observability}'`).replace("from './core'",`from '${core}'`);
 const {run:resumeRun}=await import(encode(resumeSource));
 test('retoma lote persistido após falha sem duplicados nem executar histórico',async()=>{
  globalThis.batchState=initial();globalThis.batchState.config.maxTraders=1;globalThis.batchState.wallets=[{address:'wallet',cursor:null,added:0,status:'Em observação',observed:0,swaps:0,gap:false}];globalThis.methods=[];globalThis.failBatch=true;
@@ -56,7 +57,7 @@ const simulationSource=fs.readFileSync('lib/runner.ts','utf8').replace("import {
  async market(){return {sol:100,usdcUsd:1,eurPerUsd:1,time:Date.now(),fxDate:'2026-10-26'}}
  async feeSol(){return .00005}
  async quote(input,output,amount){return {outAmount:input==='${USDC}'?String(Math.floor(Number(amount)*10)):String(Math.floor(Number(amount)/10))}}
-}`).replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.simState);const readState=async()=>globalThis.simState;").replace("from './core'",`from '${core}'`);
+}`).replace("import {mutate,readState} from './store';","const mutate=async fn=>fn(globalThis.simState);const readState=async()=>globalThis.simState;").replace("from './observability'",`from '${observability}'`).replace("from './core'",`from '${core}'`);
 const {run:simulateRun}=await import(encode(simulationSource));
 test('sinal reconhecido posterior à descoberta abre e fecha posições apenas virtuais',async()=>{
  globalThis.simState=initial();simState.config.maxTraders=1;simState.wallets=[{address:wallets[0],added:Date.now()-3600000,cursor:'discovery',observed:1,swaps:1,gap:true,status:'Em observação'}];globalThis.swapFixture=swap;globalThis.simSide='buy';
