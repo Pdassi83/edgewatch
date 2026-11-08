@@ -4,6 +4,8 @@ Aplicação TypeScript / React / Vinext em Cloudflare Workers, com D1 persistent
 
 As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determinísticas, causais e exclusivamente de observação. Produzem relatórios/propostas tipadas, mas não são chamadas pelo runner, não alteram estratégias, não contornam risco e não executam operações. Servem para testar o contrato antes de ligar qualquer modelo.
 
+`lib/evaluation.ts` permite repetir snapshots fornecidos em ordem temporal e comparar contagens de propostas com os resultados observados das estratégias. A comparação é explicitamente descritiva: sem uma série de cotações/preços de execução alinhada a cada decisão, o módulo devolve P/L de REFLEX como indisponível em vez de fabricar um backtest.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
