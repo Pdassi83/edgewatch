@@ -8,6 +8,8 @@ As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determiníst
 
 `lib/research-ledger.ts` define o registo experimental versionado de observação, proposta e cotação virtual alinhada. Rejeita cronologias impossíveis, valores inválidos, propostas desalinhadas e decisões duplicadas. O formato declara sempre `paper_only` e `not_executed`; não é persistido nem usado pelo runner nesta fase.
 
+`lib/reflex-portfolio.ts` contabiliza uma carteira REFLEX totalmente offline: uma posição longa por carteira, sem shorting ou alavancagem, entrada limitada por percentagem do património, saída total, custos explícitos, P/L realizado, valorização das posições abertas e drawdown observado. A ordem de execução segue a receção das cotações, não apenas a hora da proposta.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
