@@ -14,6 +14,8 @@ As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determiníst
 
 `lib/comparison-report.ts` produz um relatório comparativo v1 de cobertura, custos, P/L, rejeições e políticas. Só classifica a evidência como descritivamente comparável quando universo de sinais, capital, preços e custos coincidem e a amostra mínima é cumprida. Nunca declara superioridade estatística ou rentabilidade futura.
 
+O pipeline completo pode ser executado sem rede com `pnpm evaluate:offline <input.json>`. A entrada inclui obrigatoriamente `datasetId`, `generatedAt`, snapshot, contextos, configuração e políticas; a saída JSON contém ledger, cobertura, carteira e relatório. O comando escreve apenas em stdout e não chama o runner, D1, fornecedores ou tarefas agendadas.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
