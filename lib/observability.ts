@@ -28,6 +28,12 @@ export const decisionLabels:Record<string,string>={
 const finite=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x);
 const numberOrNull=(x:unknown)=>finite(x)?x:null;
 const age=(time:unknown,now:number)=>finite(time)&&time>0&&time<=now?now-time:null;
+const pendingCount=(pending:unknown)=>{
+ if(!pending||typeof pending!=='object')return 0;
+ const value=pending as {signatures?:unknown;count?:unknown};
+ if(Array.isArray(value.signatures))return value.signatures.length;
+ return finite(value.count)&&value.count>=0?value.count:0;
+};
 
 /** Only allowlisted evidence, never the raw RPC response or provider URLs. */
 export function observeSignal(signal:Signal,tx:any,historical:boolean){
@@ -136,15 +142,22 @@ export function diagnostics(s:State,now=Date.now()){
   coverage:{fullChainCoverage:null,completeHistory:false,currentLedgerObservations:s.signals.length,currentLedgerSupportedSwaps:parseable.length,
    parserAcceptanceInCurrentLedger:s.signals.length?parseable.length/s.signals.length:null,
    signalsWithStructuredAudit:audited.length,legacySignalsWithoutStructuredAudit:s.signals.length-audited.length,
-   externalHistoryNotIncluded:externalHistory,pending:s.wallets.reduce((n,w)=>n+(w.pending?.signatures.length||0),0),
+   externalHistoryNotIncluded:externalHistory,pending:s.wallets.reduce((n,w)=>n+pendingCount(w.pending),0),
    detectionLagMs:distribution(s.signals.filter(x=>x.time>0).map(x=>x.detected-x.time)),
    wallets:s.wallets.map(w=>({address:w.address,knownGap:w.gap,observed:w.observed,supportedSwaps:w.swaps,
-    pending:w.pending?.signatures.length||0,pendingHistorical:w.pending?.historical??null,lastWindow:w.collectionWindow??null}))},
+    pending:pendingCount(w.pending),pendingHistorical:w.pending?.historical??null,lastWindow:w.collectionWindow??null}))},
   decisions:{count:decisions.length,byCode,parserRejections:s.signals.filter(x=>x.side==='ignore').length,
    evaluatedSignals:audited.filter(x=>x.audit!.decisions.length>0).length},
   portfolios,
   requests:{utcDay:today,storedDay:s.callDay,usedToday:s.callDay===today?s.calls:0,dailyLimit:1500,cycleLimit:36,
    telemetry:s.telemetry??null},
+  warnings:[
+   ...(!marketValuesValid?[{code:'market_unavailable',severity:'critical' as const,message:'A cotação persistida está ausente ou contém valores inválidos.'}]:marketReceiptAgeMs===null||marketReceiptAgeMs>180000?[{code:'market_stale',severity:'warning' as const,message:'A cotação recebida ultrapassa os 180 segundos aceites pelo simulador.'}]:[]),
+   ...(lastSuccessAgeMs===null||lastSuccessAgeMs>7200000?[{code:'collection_overdue',severity:'warning' as const,message:'Não existe uma recolha bem-sucedida confirmada nas últimas duas horas.'}]:[]),
+   ...(s.wallets.some(w=>w.gap)?[{code:'coverage_gaps',severity:'warning' as const,message:'Existem carteiras com lacunas conhecidas; a amostra não representa o histórico completo.'}]:[]),
+   ...(s.wallets.reduce((n,w)=>n+pendingCount(w.pending),0)>0?[{code:'pending_transactions',severity:'warning' as const,message:'Existem transações pendentes para ciclos posteriores.'}]:[]),
+   ...(externalHistory?[{code:'external_history',severity:'warning' as const,message:'A produção refere arquivo externo; esta projeção não inclui o respetivo detalhe.'}]:[]),
+  ],
   retention:{policy:'github_baseline',payloadUtf8Bytes:new TextEncoder().encode(JSON.stringify(s)).byteLength,providerTextLimitBytes:2000000,
    signals:s.signals.length,signalLimit:1500,logs:s.logs.length,logLimit:6000,
    snapshotLimitPerPortfolio:2000,reached:s.signals.length>=1500||s.logs.length>=6000||s.portfolios.some(p=>p.series.length>=2000),

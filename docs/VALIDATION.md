@@ -36,6 +36,12 @@ O build emite o aviso habitual de classificação estática de rotas do Vinext e
 
 ## Limites da verificação
 
+Reconciliação adicional de 08-11-2026: a versão ativa do Sites é a 10, com SHA de proveniência `c58fd1a56d9c3e5934897b2dc044f11fc8850e06`, inexistente no GitHub acessível. Foi validado apenas o contrato público de `status`, que confirma arquivo e fila posteriores ao `main`; o arquivo-fonte e o esquema D1 interno não ficaram disponíveis. O teste de regressão aceita `{count,historical}` apenas como entrada da projeção de diagnóstico e não afirma que esse seja o esquema persistido.
+
+Na branch consolidada, em Windows/Node 22.20.0: 85/85 testes Node passaram, `pnpm exec tsc --noEmit`, `pnpm build` e `git diff --check` passaram. `python tests/persistence.py` não pôde ser repetido porque o ambiente só disponibiliza o alias da Microsoft Store e não um interpretador Python executável; o teste SQLite tinha passado na validação original do PR #2. Esta indisponibilidade fica como bloqueio de ambiente e não é apresentada como teste aprovado nesta execução.
+
+`pnpm lint` também foi executado e falhou com 34 erros e 1 aviso já presentes no conjunto consolidado, sobretudo `no-explicit-any` em módulos existentes e regras React/Next na página monolítica. A consolidação não alarga o âmbito para refatorar esses ficheiros; este débito deve ser tratado separadamente antes de tornar lint um gate obrigatório.
+
 Os dados de produção foram apenas consultados por `status`. Não houve `collect`, alteração da configuração, migração aplicada, limpeza, merge ou publicação. Não foram usadas credenciais ou dados privados nos fixtures nem adicionados endereços reais acompanhados ao repositório público.
 
 As fontes RPC/Jupiter/BCE foram substituídas por fixtures nos testes. Os testes do store executam o SQL real em SQLite, mas não certificam o serviço D1 em produção, nem a política privada do dispatch Sites, quotas da conta ou utilização de CPU no alojamento.

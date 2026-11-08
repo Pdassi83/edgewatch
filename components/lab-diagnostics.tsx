@@ -15,6 +15,7 @@ export function LabDiagnostics({state}:{state:State}){
  }).slice(-30).reverse();
  return <>
   <div className="alert">Transações observadas: dados reais de uma amostra da Solana. Operações, custos e resultados: exclusivamente virtuais. Cobertura total da blockchain desconhecida.</div>
+  {d.warnings.length>0&&<section className="panel diagnostics-warnings" aria-label="Avisos de saúde"><div className="panelhead"><div><h2>Avisos de saúde</h2><p>Leitura informativa; não autoriza nem altera operações virtuais.</p></div></div>{d.warnings.map(w=><div className={'alert '+(w.severity==='critical'?'error':'')} key={w.code}><strong>{w.severity==='critical'?'Crítico':'Atenção'}:</strong> {w.message}</div>)}</section>}
   <section className="metrics">
    <article><label>Idade da última recolha</label><strong>{duration(d.freshness.lastSuccessAgeMs)}</strong><small>{d.freshness.collectionOlderThanTwoHours?'Sem recolha recente confirmada':'Último ciclo concluído'}</small></article>
    <article><label>Idade da receção do preço</label><strong>{duration(d.freshness.marketReceiptAgeMs)}</strong><small>{d.freshness.marketReceiptStale?'Fora do limite de 180 s para simular':'Dentro do limite de 180 s'}</small></article>

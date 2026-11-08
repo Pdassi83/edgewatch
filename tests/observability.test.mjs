@@ -61,6 +61,12 @@ test('observações com arquivos externos são exportadas como registo ativo inc
  const s=setup();s.archive={signals:200,logs:1000};s.archivedIgnored={count:400};s.signals=[signal()];
  const x=researchExport(s,now);assert.equal(x.metrics.coverage.externalHistoryNotIncluded,true);assert.equal(x.metrics.retention.runtimeReconciliationRequired,true);
  assert.equal(x.provenance.fullChainHistory,false);assert.equal(x.observations.length,1);assert.equal(x.observations[0].audit,null);assert.equal(x.tradingMode,'paper_only');
+ assert(x.metrics.warnings.some(w=>w.code==='external_history'));
+});
+test('avisos úteis reutilizam o diagnóstico granular e aceitam a contagem publicada sem inventar o esquema persistido',()=>{
+ const s=setup();s.market.time=now-180001;s.lastSuccess=now-7200001;s.wallets=[{address:wallet,gap:true,pending:{count:44,historical:false},observed:1,swaps:0}];
+ const d=diagnostics(s,now);assert.equal(d.coverage.pending,44);assert.equal(d.coverage.wallets[0].pending,44);
+ assert.deepEqual(d.warnings.map(w=>w.code),['market_stale','collection_overdue','coverage_gaps','pending_transactions']);
 });
 test('utilização diária não confunde o contador UTC anterior com o dia atual',()=>{
  const s=setup();s.callDay='2026-11-06';s.calls=1499;const d=diagnostics(s,now);assert.equal(d.requests.usedToday,0);assert.equal(s.calls,1499);assert.equal(d.requests.storedDay,'2026-11-06');
