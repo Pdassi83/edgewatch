@@ -16,7 +16,7 @@ export function simulateReflexPortfolio(records:ResearchRecord[],config:Portfoli
  const equity=()=>cash+[...positions.values()].reduce((sum,p)=>sum+p.qty*(lastPrice.get(p.wallet)??p.costBasisEur/p.qty),0);
  const checkpoint=()=>{const value=equity();peak=Math.max(peak,value);if(peak>0)maxDrawdownPct=Math.max(maxDrawdownPct,(1-value/peak)*100);};
  for(const record of executionOrder){
-  const {proposal,observation,quote}=record,signal=observation.latestSignal,key=`${observation.asOf}:${proposal.signalSignature??'none'}`;
+  const {proposal,observation,quote}=record,signal=observation.latestSignal,key=`${signal?.wallet??'none'}:${proposal.signalSignature??'none'}`;
   if(proposal.action==='HOLD'){holds++;checkpoint();continue;}
   const wallet=signal?.wallet??null,time=quote?.receivedAt??record.recordedAt,base={recordKey:key,time,action:proposal.action,wallet,qty:0,priceEur:quote?.priceEur??null,costEur:0,realizedPnlEur:null} as const;
   if(!wallet){events.push({...base,outcome:'rejected',reason:'missing_signal'});checkpoint();continue;}

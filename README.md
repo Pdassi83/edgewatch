@@ -12,6 +12,8 @@ As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determiníst
 
 `lib/research-adapter.ts` converte exportações versionadas em datasets reproduzíveis. Um sinal histórico sem contexto alinhado é sempre `HOLD` com `historical_context_incomplete`; apenas um contexto causal explícito por `(wallet, signature)` pode fornecer saúde temporal e cotação virtual. O adaptador não usa métricas agregadas do momento da exportação como se fossem históricas.
 
+`lib/comparison-report.ts` produz um relatório comparativo v1 de cobertura, custos, P/L, rejeições e políticas. Só classifica a evidência como descritivamente comparável quando universo de sinais, capital, preços e custos coincidem e a amostra mínima é cumprida. Nunca declara superioridade estatística ou rentabilidade futura.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
