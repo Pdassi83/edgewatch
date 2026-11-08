@@ -7,6 +7,7 @@ export type AlignedContext={wallet:string;signature:string;asOf:number;market:{r
 
 const finite=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x);
 const key=(wallet:string,signature:string)=>`${wallet}:${signature}`;
+const compareKey=(a:string,b:string)=>a<b?-1:a>b?1:0;
 
 /** Converts an allowlisted export into deterministic records. Missing context becomes HOLD, never inferred data. */
 export function adaptResearchSnapshot(snapshot:ResearchSnapshot,contexts:AlignedContext[]=[]){
@@ -14,13 +15,13 @@ export function adaptResearchSnapshot(snapshot:ResearchSnapshot,contexts:Aligned
  const contextByKey=new Map<string,AlignedContext>();
  for(const context of contexts){const k=key(context.wallet,context.signature);if(contextByKey.has(k))throw Error('Contexto alinhado duplicado');contextByKey.set(k,context);}
  const seen=new Set<string>(),records:ResearchRecord[]=[],unresolved:{wallet:string;signature:string;reason:string}[]=[];
- const observations=[...snapshot.observations].sort((a,b)=>a.detectedAt-b.detectedAt||key(a.wallet,a.signature).localeCompare(key(b.wallet,b.signature)));
+ const observations=[...snapshot.observations].sort((a,b)=>a.detectedAt-b.detectedAt||compareKey(key(a.wallet,a.signature),key(b.wallet,b.signature)));
  for(const source of observations){
   if(!source||typeof source!=='object')throw Error('Observação histórica inválida');
   const k=key(source.wallet,source.signature);if(seen.has(k))throw Error('Observação histórica duplicada');seen.add(k);
   if(!source.wallet||!source.signature||!finite(source.sourceTime)||!finite(source.detectedAt)||source.sourceTime<=0||source.sourceTime>source.detectedAt||!['buy','sell','ignore'].includes(source.side)){throw Error('Observação histórica inválida');}
-  if(source.side==='ignore'){unresolved.push({wallet:source.wallet,signature:source.signature,reason:'unsupported_signal'});continue;}
   const context=contextByKey.get(k);
+  if(source.side==='ignore'){if(context)throw Error('Contexto associado a sinal ignorado');unresolved.push({wallet:source.wallet,signature:source.signature,reason:'unsupported_signal'});continue;}
   let observation:Observation,quote:VirtualQuote|null=null;
   if(!context){
    observation={schemaVersion:1,asOf:source.detectedAt,tradingMode:'paper_only',market:null,latestSignal:{signature:source.signature,wallet:source.wallet,time:source.sourceTime,detected:source.detectedAt,side:source.side,reason:source.reason},
