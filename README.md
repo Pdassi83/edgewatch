@@ -2,6 +2,8 @@
 
 Aplicação TypeScript / React / Vinext em Cloudflare Workers, com D1 persistente e acesso privado gerido por Sites. Paper trading apenas. Nenhum código de assinatura, envio de transações ou ligação de carteira.
 
+As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determinísticas, causais e exclusivamente de observação. Produzem relatórios/propostas tipadas, mas não são chamadas pelo runner, não alteram estratégias, não contornam risco e não executam operações. Servem para testar o contrato antes de ligar qualquer modelo.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
