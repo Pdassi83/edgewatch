@@ -6,6 +6,8 @@ As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determiníst
 
 `lib/evaluation.ts` permite repetir snapshots fornecidos em ordem temporal e comparar contagens de propostas com os resultados observados das estratégias. A comparação é explicitamente descritiva: sem uma série de cotações/preços de execução alinhada a cada decisão, o módulo devolve P/L de REFLEX como indisponível em vez de fabricar um backtest.
 
+`lib/research-ledger.ts` define o registo experimental versionado de observação, proposta e cotação virtual alinhada. Rejeita cronologias impossíveis, valores inválidos, propostas desalinhadas e decisões duplicadas. O formato declara sempre `paper_only` e `not_executed`; não é persistido nem usado pelo runner nesta fase.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
