@@ -10,6 +10,8 @@ As baselines `BRAIN` e `REFLEX` em `lib/agents.ts` são projeções determiníst
 
 `lib/reflex-portfolio.ts` contabiliza uma carteira REFLEX totalmente offline: uma posição longa por carteira, sem shorting ou alavancagem, entrada limitada por percentagem do património, saída total, custos explícitos, P/L realizado, valorização das posições abertas e drawdown observado. A ordem de execução segue a receção das cotações, não apenas a hora da proposta.
 
+`lib/research-adapter.ts` converte exportações versionadas em datasets reproduzíveis. Um sinal histórico sem contexto alinhado é sempre `HOLD` com `historical_context_incomplete`; apenas um contexto causal explícito por `(wallet, signature)` pode fornecer saúde temporal e cotação virtual. O adaptador não usa métricas agregadas do momento da exportação como se fossem históricas.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise

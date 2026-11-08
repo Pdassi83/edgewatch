@@ -5,7 +5,7 @@ export type Observation={
  schemaVersion:1;asOf:number;tradingMode:'paper_only';
  market:{solEur:number;receivedAt:number;ageMs:number}|null;
  latestSignal:Pick<Signal,'signature'|'wallet'|'time'|'detected'|'side'|'reason'>|null;
- health:{marketFresh:boolean;collectionRecent:boolean;knownGaps:number;pending:number};
+ health:{contextComplete:boolean;marketFresh:boolean;collectionRecent:boolean;knownGaps:number|null;pending:number|null};
 };
 export type ReflexProposal={schemaVersion:1;mode:'observe_only';action:AgentAction;confidence:number;reasonCodes:string[];asOf:number;signalSignature:string|null};
 export type BrainReview={schemaVersion:1;mode:'observe_only';asOf:number;findings:{code:string;evidence:number|string|null}[];hypotheses:string[]};
@@ -25,13 +25,14 @@ export function observationAt(state:State,asOf:number):Observation{
   ?{solEur:state.market.sol*state.market.eurPerUsd,receivedAt:state.market.time,ageMs:asOf-state.market.time}:null;
  return {schemaVersion:1,asOf,tradingMode:'paper_only',market,
   latestSignal:signals[0]?{signature:signals[0].signature,wallet:signals[0].wallet,time:signals[0].time,detected:signals[0].detected,side:signals[0].side,reason:signals[0].reason}:null,
-  health:{marketFresh:!!market&&market.ageMs<=180000,collectionRecent:finite(state.lastSuccess)&&state.lastSuccess<=asOf&&asOf-state.lastSuccess<=7200000,
+  health:{contextComplete:true,marketFresh:!!market&&market.ageMs<=180000,collectionRecent:finite(state.lastSuccess)&&state.lastSuccess<=asOf&&asOf-state.lastSuccess<=7200000,
    knownGaps:state.wallets.filter(w=>w.gap).length,pending:state.wallets.reduce((n,w)=>n+pending(w.pending),0)}};
 }
 
 /** Deterministic baseline only. A proposal can never execute or bypass the risk engine. */
 export function reflexBaseline(input:Observation):ReflexProposal{
  const reasons:string[]=[];
+ if(!input.health.contextComplete)reasons.push('historical_context_incomplete');
  if(!input.health.marketFresh)reasons.push('market_not_fresh');
  if(!input.health.collectionRecent)reasons.push('collection_not_recent');
  if(input.health.knownGaps)reasons.push('coverage_gaps');
