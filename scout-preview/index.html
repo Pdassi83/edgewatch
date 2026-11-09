@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; img-src data:; form-action 'none'; base-uri 'none'">
+<title>EDGEWATCH | SCOUT Preview</title>
+<style>
+:root{color-scheme:dark;--bg:#080f0d;--panel:#111c16;--line:#293d2e;--text:#ecf4eb;--muted:#9cae9f;--green:#bdf584;--amber:#eccc85;--red:#eca599;--blue:#9dc9e9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{min-height:100vh;display:grid;grid-template-columns:230px minmax(0,1fr)}
+aside{border-right:1px solid var(--line);padding:28px 20px;background:#0c1611;display:flex;flex-direction:column}
+.brand{font-size:21px;letter-spacing:-1px;font-weight:850;white-space:nowrap}.brand span{color:var(--green)}
+.lab{font-size:10px;color:var(--green);letter-spacing:1.3px;margin-top:15px}
+nav{margin-top:35px;display:grid;gap:14px;color:var(--muted);font-size:13px}nav strong{background:#203521;color:var(--green);padding:11px;border-radius:8px}
+.foot-side{margin-top:auto;color:var(--muted);font-size:11px;border-top:1px solid var(--line);padding-top:16px}
+main{min-width:0}header{padding:18px 30px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+.content{max-width:1300px;margin:auto;padding:36px 30px}
+.kicker{font-size:11px;color:var(--green);letter-spacing:1.6px;font-weight:750}
+h1{font-size:clamp(29px,4vw,41px);letter-spacing:-1.5px;margin:6px 0}h1 span{font-size:.65em;color:var(--muted)}
+.sub{color:var(--muted);margin:5px 0 22px}
+.headline{display:flex;justify-content:space-between;gap:20px;align-items:center}
+button{background:var(--green);border:0;border-radius:9px;color:#101a0c;padding:12px 17px;cursor:pointer;font:700 12px system-ui}button:focus-visible{outline:3px solid white}input{display:none}
+.notice{border:1px solid #526044;background:#21271b;border-radius:12px;padding:15px 18px;font-size:12px;color:#ecddaf;line-height:1.6}
+#message{min-height:26px;padding:7px 2px;color:var(--amber);font-size:12px}
+.meta{display:flex;justify-content:space-between;gap:12px;margin:9px 0 18px;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+.metric,.panel{border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.metric{padding:18px}.metric p{margin:0;color:var(--muted);font-size:11px}.metric strong{display:block;font-size:32px;margin:7px 0;line-height:1.4}.metric small{font-size:10px;color:var(--muted)}
+.panel{margin-top:17px;overflow:hidden}.panelhead{padding:20px 22px}.panelhead h2{font-size:17px;margin:0 0 4px}.panelhead p{margin:0;color:var(--muted);font-size:11px}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:780px;text-align:left}
+th{background:#1b2b21;color:var(--muted);font-size:11px;padding:12px 18px}
+td{border-top:1px solid var(--line);padding:19px 18px;font-size:12px}
+.badge{display:inline-block;border-radius:6px;border:1px solid;padding:5px 8px;font-size:11px}
+.badge.amber{color:var(--amber);background:#29261a;border-color:#625238}.badge.blue{color:var(--blue);background:#1a2a35;border-color:#486179}
+.badge.green{color:var(--green);background:#203523;border-color:#496e37}.badge.red{color:var(--red);background:#32221e;border-color:#74473c}
+.meter{width:95px;height:5px;border-radius:5px;background:#304032;margin-top:6px;overflow:hidden}.meter span{display:block;height:5px;background:var(--green)}
+.note{padding:16px 22px;color:var(--muted);font-size:11px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.two .panel{padding:22px}.two p{color:var(--muted);font-size:12px}
+footer{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:15px;margin:26px 0}
+@media(max-width:1000px){.app{grid-template-columns:170px minmax(0,1fr)}.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.app{display:block}aside{padding:12px 17px;border-bottom:1px solid var(--line)}nav,.lab,.foot-side{display:none}header{padding:12px 15px}.content{padding:25px 15px}.headline{display:block}h1 span{display:block}button{width:100%;margin:15px 0 0}.metric{padding:14px}.metric strong{font-size:26px}.two{grid-template-columns:1fr}footer{display:block}footer span{display:block;margin:7px 0}}
+</style>
+</head>
+<body><div class="app">
+<aside><div class="brand">◇ EDGE<span>WATCH</span></div><div class="lab">PAPER TRADING LAB</div><nav><strong>◈ SCOUT</strong><div>◉ Diagnóstico</div><div>◌ Estratégias</div></nav><div class="foot-side">Pré-visualização isolada.<br>Sem API, chaves ou operações reais.</div></aside>
+<main><header><span>Workspace / EDGEWATCH / SCOUT</span><span>● SIMULAÇÃO</span></header>
+<div class="content">
+<div class="kicker">FASE 3 · TRIAGEM DE CARTEIRAS</div>
+<div class="headline"><div><h1>SCOUT <span>/ Qualidade da amostra</span></h1><p class="sub">Investigar primeiro. Copiar operações apenas com evidência.</p></div>
+<div><button id="import" type="button">Importar JSON local</button><input id="file" type="file" accept=".json,application/json"></div></div>
+<div class="notice"><strong>Demonstração isolada.</strong> Os dados iniciais são contagens anonimizadas da recolha de 9/11/2026. Não existe atualização automática nem qualquer ligação ao laboratório ou à blockchain. A importação é analisada apenas no navegador; nunca envia um ficheiro para o alojamento.</div>
+<div id="message" role="status" aria-live="polite"></div>
+<div class="meta"><span id="source">Resumo anonimizado</span><span id="stamp">Última recolha: 09/11/2026</span></div>
+<div class="grid">
+ <div class="metric"><p>Carteiras analisadas</p><strong id="wallets">3</strong><small>Sem ranking de rentabilidade</small></div>
+ <div class="metric"><p>Swaps suportados</p><strong id="swaps">91</strong><small>Compatibilidade do parser</small></div>
+ <div class="metric"><p>Transações pendentes</p><strong id="pending">87</strong><small>Amostra ainda incompleta</small></div>
+ <div class="metric"><p>Candidatos a investigação</p><strong id="ready">0</strong><small>Não são sinais de investimento</small></div>
+</div>
+<section class="panel">
+ <div class="panelhead"><h2>Triagem das carteiras</h2><p>30 observações, 5 swaps e máximo 10 pendentes. Limiares experimentais, sem valor preditivo demonstrado.</p></div>
+ <div class="tablewrap"><table><thead><tr><th>Carteira</th><th>Observadas</th><th>Swaps</th><th>Compatibilidade</th><th>Pendentes</th><th>Diagnóstico</th></tr></thead><tbody id="rows"></tbody></table></div>
+ <div class="note">Um swap reconhecido apenas demonstra compatibilidade com o parser. Carteiras com outros protocolos ou pares podem parecer menos ativas. Este módulo não altera carteiras nem estratégias.</div>
+</section>
+<div class="two">
+<section class="panel"><h2>Dados antes de decisões</h2><p>Lacunas, filas pendentes e amostras pequenas impedem uma comparação fiável. Não há rentabilidade histórica reconstruída.</p></section>
+<section class="panel"><h2>Atualização automática</h2><p>Ainda indisponível. Exige uma fonte autenticada compatível com a versão do Sites e validação de privacidade, sem expor a API interna.</p></section>
+</div>
+<footer><span>EDGEWATCH | SCOUT · Apenas leitura</span><span>Sem trading real · Sem acesso a fundos</span></footer>
+</div></main></div>
+<script>
+'use strict';
+const data={lastSuccess:1794232960190,wallets:[
+{address:'Carteira 01',observed:1188,swaps:0,gap:true,pending:{count:81}},
+{address:'Carteira 02',observed:738,swaps:90,gap:true,pending:{count:6}},
+{address:'Carteira 03',observed:2,swaps:1,gap:true,pending:{count:0}}
+]};
+const statuses={invalid:['Dados inválidos','red'],parser:['Auditar parser','amber'],little:['Amostra insuficiente','amber'],coverage:['Rever cobertura','blue'],candidate:['Investigação offline','green']};
+const nf=new Intl.NumberFormat('pt-PT');
+const good=x=>Number.isSafeInteger(x)&&x>=0;
+function count(p){if(p==null)return 0;if(typeof p!=='object'||Array.isArray(p))return null;const a=p.signatures;const b=p.count;if(a!==undefined&&(!Array.isArray(a)||!a.every(s=>typeof s==='string')))return null;if(b!==undefined&&!good(b))return null;if(a!==undefined&&b!==undefined&&a.length!==b)return null;return a!==undefined?a.length:b!==undefined?b:null}
+function assess(w){const o=good(w.observed)?w.observed:null,s=good(w.swaps)?w.swaps:null,p=count(w.pending);let st;if(o===null||s===null||s>o||p===null)st='invalid';else if(o>=30&&s===0)st='parser';else if(o<30||s<5)st='little';else if(w.gap||p>10)st='coverage';else st='candidate';return {o,s,p,st,rate:o>0&&s!==null&&s<=o?s/o:null}}
+function td(tr,s){const n=document.createElement('td');n.textContent=s;tr.appendChild(n);return n}
+function render(snapshot,source){const tbody=document.getElementById('rows');tbody.replaceChildren();let swaps=0,pend=0,ready=0;for(let i=0;i<snapshot.wallets.length;i++){const w=snapshot.wallets[i],a=assess(w);const tr=document.createElement('tr');let name=source==='sample'?w.address:'Carteira '+String(i+1).padStart(2,'0');td(tr,name);td(tr,a.o===null?'—':nf.format(a.o));td(tr,a.s===null?'—':nf.format(a.s));const meter=td(tr,a.rate===null?'—':(a.rate*100).toFixed(1)+'%');const track=document.createElement('div');track.className='meter';const line=document.createElement('span');line.style.width=Math.max(0,Math.min(100,(a.rate||0)*100))+'%';track.append(line);meter.append(track);td(tr,a.p===null?'—':nf.format(a.p));const cell=td(tr,'');const badge=document.createElement('span');badge.className='badge '+statuses[a.st][1];badge.textContent=statuses[a.st][0]+(w.gap?' · lacunas':'');cell.append(badge);tbody.append(tr);if(a.s!==null)swaps+=a.s;if(a.p!==null)pend+=a.p;if(a.st==='candidate')ready++}
+document.getElementById('wallets').textContent=nf.format(snapshot.wallets.length);document.getElementById('swaps').textContent=nf.format(swaps);document.getElementById('pending').textContent=nf.format(pend);document.getElementById('ready').textContent=nf.format(ready);document.getElementById('source').textContent=source==='sample'?'Resumo anonimizado':'Ficheiro privado analisado localmente';document.getElementById('stamp').textContent=snapshot.lastSuccess?'Última recolha: '+new Date(snapshot.lastSuccess).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon'}):'Sem data de recolha'}
+render(data,'sample');
+document.getElementById('import').addEventListener('click',()=>document.getElementById('file').click());
+document.getElementById('file').addEventListener('change',async e=>{const f=e.target.files[0],m=document.getElementById('message');if(!f)return;try{if(f.size>5e6)throw Error('Limite máximo de 5 MB');let j=JSON.parse(await f.text());if(j.result&&j.result.wallets)j=j.result;if(j.data&&j.data.wallets)j=j.data;if(!j||!Array.isArray(j.wallets)||j.wallets.length>100||j.wallets.some(w=>!w||typeof w!=='object'))throw Error('Formato de carteiras incompatível');render(j,'import');m.textContent='JSON importado apenas no navegador.'}catch(err){m.textContent='Importação recusada: '+String(err.message||'formato inválido')}finally{e.target.value=''}});
+</script>
+</body></html>
