@@ -37,11 +37,12 @@ function pendingCount(value:unknown):number|null{
  if(typeof value!=='object'||Array.isArray(value))return null;
  const p=value as {signatures?:unknown;count?:unknown};
  const hasSignatures=p.signatures!==undefined,hasCount=p.count!==undefined;
- if(hasSignatures&&(!Array.isArray(p.signatures)||!p.signatures.every(s=>typeof s==='string')))return null;
+ const signatures=Array.isArray(p.signatures)?p.signatures:null;
+ if(hasSignatures&&(!signatures||!signatures.every(s=>typeof s==='string')))return null;
  if(hasCount&&!nonnegativeInteger(p.count))return null;
- if(hasSignatures&&hasCount&&p.signatures!.length!==p.count)return null;
- if(hasSignatures)return p.signatures!.length;
- return hasCount?p.count!:null;
+ if(hasSignatures&&hasCount&&signatures!.length!==p.count)return null;
+ if(hasSignatures)return signatures!.length;
+ return hasCount?p.count as number:null;
 }
 
 /**
@@ -69,9 +70,9 @@ export function scoutWallets(state:Pick<State,'wallets'|'lastRun'|'lastSuccess'>
 
   let status:ScoutTriage;
   if(reasons.some(r=>['invalid_counters','invalid_queue','future_aggregate'].includes(r)))status='invalid_evidence';
-  else if(observed!>=SCOUT_POLICY.minimumObserved&&supportedSwaps===0)status='investigate_compatibility';
-  else if(observed!<SCOUT_POLICY.minimumObserved||supportedSwaps!<SCOUT_POLICY.minimumSupportedSwaps)status='insufficient_evidence';
-  else if(w.gap||pending!>SCOUT_POLICY.maximumPendingForResearch)status='coverage_review';
+  else if(observed!==null&&observed>=SCOUT_POLICY.minimumObserved&&supportedSwaps===0)status='investigate_compatibility';
+  else if((observed as number)<SCOUT_POLICY.minimumObserved||(supportedSwaps as number)<SCOUT_POLICY.minimumSupportedSwaps)status='insufficient_evidence';
+  else if(w.gap||(pending as number)>SCOUT_POLICY.maximumPendingForResearch)status='coverage_review';
   else{status='research_candidate';reasons.push('meets_compatibility_screen');}
 
   return {address:w.address,status,reasons,observed,supportedSwaps,
