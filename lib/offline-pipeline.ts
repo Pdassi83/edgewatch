@@ -75,12 +75,26 @@ export function reflexPolicyFor(config:PortfolioConfig):EvaluationPolicy{
  return {pricingPolicyId:'aligned-virtual-quote-v1',costPolicyId:'explicit-quote-cost-v1',sizingPolicyId:`equity-${config.perTradePct}pct-notional-plus-cost-v1`,riskPolicyId:'long-only-one-position-per-wallet-v1',valuationPolicyId:'last-recorded-wallet-quote-v1'};
 }
 
-const canonicalJson=(value:unknown):string=>{
- if(value===null||typeof value==='string'||typeof value==='boolean'||typeof value==='number')return JSON.stringify(value);
- if(Array.isArray(value))return `[${value.map(canonicalJson).join(',')}]`;
- if(value&&typeof value==='object')return `{${Object.keys(value as JsonObject).sort().map(key=>`${JSON.stringify(key)}:${canonicalJson((value as JsonObject)[key])}`).join(',')}}`;
+const canonicalJson=(value:unknown,stack=new Set<object>()):string=>{
+ if(value===null||typeof value==='string'||typeof value==='boolean')return JSON.stringify(value);
+ if(typeof value==='number'){if(!Number.isFinite(value))return invalid('input.valor_nao_json');return JSON.stringify(value);}
+ if(value&&typeof value==='object'){
+  if(stack.has(value))return invalid('input.valor_nao_json');stack.add(value);
+  try{
+   if(Array.isArray(value)){
+    if(Object.getPrototypeOf(value)!==Array.prototype||Reflect.ownKeys(value).length!==value.length+1)return invalid('input.valor_nao_json');const parts:string[]=[];
+    for(let index=0;index<value.length;index++){const descriptor=Object.getOwnPropertyDescriptor(value,String(index));if(!descriptor||!Object.prototype.hasOwnProperty.call(descriptor,'value'))return invalid('input.valor_nao_json');parts.push(canonicalJson(descriptor.value,stack));}
+    return `[${parts.join(',')}]`;
+   }
+   const prototype=Object.getPrototypeOf(value);if(prototype!==Object.prototype&&prototype!==null)return invalid('input.valor_nao_json');const keys=Object.keys(value as JsonObject).sort();
+   if(Reflect.ownKeys(value).length!==keys.length)return invalid('input.valor_nao_json');const parts:string[]=[];
+   for(const key of keys){const descriptor=Object.getOwnPropertyDescriptor(value,key);if(!descriptor||!descriptor.enumerable||!Object.prototype.hasOwnProperty.call(descriptor,'value'))return invalid('input.valor_nao_json');parts.push(`${JSON.stringify(key)}:${canonicalJson(descriptor.value,stack)}`);}
+   return `{${parts.join(',')}}`;
+  }finally{stack.delete(value);}
+ }
  return invalid('input.valor_nao_json');
 };
+export const canonicalJsonSha256=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
 
 /** Complete deterministic offline flow. No network, persistence, scheduler or runner access. */
 export function runOfflinePipeline(value:unknown){
@@ -95,7 +109,7 @@ export function runOfflinePipeline(value:unknown){
  const portfolio=simulateReflexPortfolio(adapted.ledger.records,input.portfolioConfig);
  const report=comparisonReport({datasetId:input.datasetId,dataset:adapted,reflex:{initialCapitalEur:portfolio.initialCapitalEur,cashEur:portfolio.cashEur,markedEquityEur:portfolio.markedEquityEur,openPositions:portfolio.positions.length,totalPnlEur:portfolio.totalPnlEur,realizedPnlEur:portfolio.realizedPnlEur,explicitCostsEur:portfolio.explicitCostsEur,closedTrades:portfolio.closedTrades,wins:portfolio.wins,losses:portfolio.losses,winRate:portfolio.winRate,maxObservedDrawdownPct:portfolio.maxObservedDrawdownPct,events:portfolio.events,quoteSources:portfolio.quoteSources},reflexPolicy,strategies:input.strategies,minimumClosedTrades:input.minimumClosedTrades},input.generatedAt);
  return {schemaVersion:2,kind:'edgewatch_offline_evaluation_result',tradingMode:'paper_only' as const,datasetId:input.datasetId,generatedAt:input.generatedAt,
-  manifest:{inputSchemaVersion:2,canonicalInputSha256:createHash('sha256').update(canonicalJson(input)).digest('hex'),sourceKind:input.datasetProvenance.sourceKind,credentialsDeclaration:'supplied_false_not_content_scanned' as const,engineVersions:{offlinePipeline:2,researchLedger:1,researchAdapter:1,reflexPortfolio:1,comparisonReport:2},effectivePortfolioConfig:{...input.portfolioConfig},effectiveReflexPolicy:reflexPolicy,strategyEvidence:'supplied_aggregates_not_independently_verified' as const},
+  manifest:{inputSchemaVersion:2,canonicalInputSha256:canonicalJsonSha256(input),sourceKind:input.datasetProvenance.sourceKind,credentialsDeclaration:'supplied_false_not_content_scanned' as const,engineVersions:{offlinePipeline:2,researchLedger:1,researchAdapter:1,reflexPortfolio:1,comparisonReport:2},effectivePortfolioConfig:{...input.portfolioConfig},effectiveReflexPolicy:reflexPolicy,strategyEvidence:'supplied_aggregates_not_independently_verified' as const},
   artifacts:{ledger:adapted.ledger,coverage:adapted.coverage,unresolved:adapted.unresolved,portfolio,report},
   guarantees:{networkAccess:false,persistence:false,runnerIntegration:false,schedulerChanges:false,financialExecution:false,credentialFieldsAccepted:false}};
 }

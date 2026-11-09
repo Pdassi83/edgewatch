@@ -20,6 +20,10 @@ Um exemplo público integralmente sintético está em `examples/offline/syntheti
 
 `sourceKind: allowlisted_research_projection` significa uma projeção local contendo apenas os campos v2 permitidos. Não declara compatibilidade direta com a exportação completa de diagnóstico, com o D1 ou com a produção v10 — essa reconciliação continua bloqueada. O comando aceita no máximo 10 MiB, escreve o resultado apenas em stdout, não ecoa JSON inválido nos erros e não chama o runner, D1, fornecedores ou tarefas agendadas.
 
+A exportação v1 conhecida desta branch pode ser projetada localmente com `pnpm project:offline <export.json> <dataset-id> <capital-eur> <percentagem-por-operação>`. O exemplo `examples/offline/branch-export-v1.synthetic.json` é integralmente sintético. O comando valida o envelope exato, rejeita formatos posteriores/desconhecidos, coloca tempos de origem ausentes ou impossíveis em quarentena e devolve um wrapper com hashes, contagens e uma entrada offline v2. `pnpm evaluate:offline <wrapper.json>` verifica a coerência estrutural do wrapper e conserva o manifesto da projeção em `manifest.sourceProjection` no resultado.
+
+A projeção copia apenas carteira, assinatura, tempos, lado e motivo. Não transforma `originalPriceUsdcPerSol`, métricas atuais, auditorias, operações virtuais, carteiras ou benchmark em cotações/contexto REFLEX; `contexts` e `strategies` ficam vazios e o avaliador recusa um wrapper que tente acrescentá-los. Por isso, sinais suportados tornam-se `HOLD`, não há negócios e o P/L mecânico de zero significa **ausência de simulação**, não desempenho do REFLEX. Capital e dimensionamento são parâmetros explícitos da nova simulação, nunca inferidos como configuração histórica. Os SHA-256 verificam coerência interna e permitem comparar ficheiros; sem a exportação original para reprojetar, não autenticam a origem.
+
 Proposta de observabilidade de 07-11-2026: [auditoria técnica](docs/AUDIT_2026-11-07.md) e [validação](docs/VALIDATION.md). O estado publicado tem um formato posterior ao `main` auditado; reconciliar código/arquivo antes de promover esta proposta. Esta branch não publica uma versão nem altera a automação.
 
 ## Diagnóstico e exportação para análise
@@ -67,7 +71,7 @@ Fontes: https://solana.publicnode.com/ ; https://developers.cloudflare.com/worke
 
 ## Desenvolvimento
 
-Node >=22.13, pnpm. `pnpm install`, `node --experimental-strip-types --test tests/*.test.mjs`, `python tests/persistence.py`, `pnpm exec tsc --noEmit`, `pnpm build`. Migrações em drizzle/; `pnpm db:generate` após alterar db/schema.ts. Nunca editar migrações aplicadas.
+Node >=22.13, pnpm. `pnpm install`, `node --experimental-strip-types --test tests/*.test.mjs`, `python tests/persistence.py`, `pnpm exec tsc --noEmit`, `pnpm build`. Avaliação local: `pnpm project:offline --help` e `pnpm evaluate:offline --help`. Migrações em drizzle/; `pnpm db:generate` após alterar db/schema.ts. Nunca editar migrações aplicadas.
 
 A autenticação depende da política **owner-private** do Sites. Nunca tornar este projeto público sem acrescentar autorização no servidor: a API e o MCP são um laboratório partilhado protegido pelo dispatch privado. O endpoint POST exige JSON e verifica Origin quando presente. Nenhuma credencial é entregue ao cliente. Configurar segredos opcionais Helius/Jupiter nas variáveis de ambiente do Sites; nunca no Git.
 
