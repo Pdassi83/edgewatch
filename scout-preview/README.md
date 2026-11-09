@@ -5,7 +5,7 @@ Esta pasta contém um **site estático de demonstração**, totalmente independe
 ## Configuração do projeto na Vercel
 
 1. Criar um **projeto novo e separado** ligado a `Pdassi83/edgewatch`.
-2. Selecionar a branch `feat/scout-isolated-vercel-preview` como origem da demonstração, sem alterar `main` nem nenhum projeto do EDGEWATCH já existente.
+2. Ligar o repositório ao novo projeto. Por defeito a Vercel pode apontar a produção para `main` (onde esta pasta não existe). Em **Project Settings → Environments → Production → Branch Tracking**, mudar a Production Branch para `feat/scout-isolated-vercel-preview`, guardar e fazer redeploy desta branch. Não alterar `main` nem nenhum projeto do EDGEWATCH já existente.
 3. Em **Root Directory**, escolher `scout-preview`.
 4. Framework Preset: **Other**; não são necessárias dependências, variáveis de ambiente ou um comando de compilação.
 5. **Antes de partilhar o endereço**, abrir **Security → Deployment Protection**, selecionar **Vercel Authentication → All Deployments**, guardar e testar em navegação privada. A Vercel anunciou essa proteção gratuita para produção e previews em 09-09-2026.
