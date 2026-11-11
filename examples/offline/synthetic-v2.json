@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "kind": "edgewatch_offline_evaluation_input",
+  "datasetId": "edgewatch-synthetic-demo-v2",
+  "generatedAt": 1800000030000,
+  "datasetProvenance": {
+    "sourceKind": "synthetic_fixture",
+    "containsCredentials": false
+  },
+  "snapshot": {
+    "schemaVersion": 1,
+    "kind": "edgewatch_research_snapshot",
+    "tradingMode": "paper_only",
+    "provenance": {
+      "historicalDecisionsReconstructed": false,
+      "fullChainHistory": false,
+      "containsCredentials": false
+    },
+    "observations": [
+      {
+        "signature": "demo-buy-001",
+        "wallet": "demo-wallet-a",
+        "sourceTime": 1799999999000,
+        "detectedAt": 1800000000000,
+        "side": "buy",
+        "reason": "synthetic_supported"
+      },
+      {
+        "signature": "demo-sell-001",
+        "wallet": "demo-wallet-a",
+        "sourceTime": 1800000009000,
+        "detectedAt": 1800000010000,
+        "side": "sell",
+        "reason": "synthetic_supported"
+      },
+      {
+        "signature": "demo-unresolved-001",
+        "wallet": "demo-wallet-b",
+        "sourceTime": 1800000019000,
+        "detectedAt": 1800000020000,
+        "side": "buy",
+        "reason": "synthetic_missing_context"
+      }
+    ]
+  },
+  "contexts": [
+    {
+      "wallet": "demo-wallet-a",
+      "signature": "demo-buy-001",
+      "asOf": 1800000000000,
+      "market": {
+        "receivedAt": 1799999999900,
+        "solEur": 90
+      },
+      "lastSuccessAt": 1799999999900,
+      "knownGaps": 0,
+      "pending": 0,
+      "quote": {
+        "requestedAt": 1800000000000,
+        "receivedAt": 1800000000100,
+        "priceEur": 90,
+        "estimatedCostEur": 0.1,
+        "source": "synthetic"
+      }
+    },
+    {
+      "wallet": "demo-wallet-a",
+      "signature": "demo-sell-001",
+      "asOf": 1800000010000,
+      "market": {
+        "receivedAt": 1800000009900,
+        "solEur": 99
+      },
+      "lastSuccessAt": 1800000009900,
+      "knownGaps": 0,
+      "pending": 0,
+      "quote": {
+        "requestedAt": 1800000010000,
+        "receivedAt": 1800000010100,
+        "priceEur": 99,
+        "estimatedCostEur": 0.1,
+        "source": "synthetic"
+      }
+    }
+  ],
+  "portfolioConfig": {
+    "initialCapitalEur": 100,
+    "perTradePct": 10
+  },
+  "strategies": [
+    {
+      "id": "synthetic-reference",
+      "label": "Referência sintética fornecida",
+      "initialCapitalEur": 100,
+      "totalPnlEur": 0.8,
+      "realizedPnlEur": 0.8,
+      "explicitCostsEur": 0.2,
+      "closedTrades": 1,
+      "signalKeys": [
+        "demo-wallet-a:demo-buy-001",
+        "demo-wallet-a:demo-sell-001",
+        "demo-wallet-b:demo-unresolved-001"
+      ],
+      "windowStart": 1800000000000,
+      "windowEnd": 1800000020000,
+      "pricingPolicyId": "aligned-virtual-quote-v1",
+      "costPolicyId": "explicit-quote-cost-v1",
+      "sizingPolicyId": "equity-10pct-notional-plus-cost-v1",
+      "riskPolicyId": "long-only-one-position-per-wallet-v1",
+      "valuationPolicyId": "last-recorded-wallet-quote-v1",
+      "policyEvidence": "declared_only"
+    }
+  ]
+}

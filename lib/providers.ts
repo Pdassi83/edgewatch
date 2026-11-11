@@ -38,8 +38,24 @@ export class Providers {
   return j;
  }
  async rpc(method:string,params:unknown[]=[]){const e=env as any;const url=e.HELIUS_API_KEY?`https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(e.HELIUS_API_KEY)}`:'https://solana-rpc.publicnode.com';const j=await this.json(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})},method);if(j.error)throw Error(`RPC recusou ${method}: código ${j.error.code}`);return j.result;}
- async quote(inputMint:string,outputMint:string,amount:string){const wait=2200-(Date.now()-this.lastJup);if(wait>0)await new Promise(r=>setTimeout(r,wait));this.lastJup=Date.now();const key=(env as any).JUPITER_API_KEY;const q=await this.json(`https://api.jup.ag/swap/v2/order?${new URLSearchParams({inputMint,outputMint,amount})}`,{headers:key?{'x-api-key':key}:{}});if(q.error||q.errorCode||q.inputMint!==inputMint||q.outputMint!==outputMint||q.inAmount!==amount||!q.routePlan?.length||!Number.isFinite(Number(q.priceImpactPct))||Math.abs(Number(q.priceImpactPct))>this.state.config.maxImpact||!/^\d+$/.test(q.outAmount)||Number(q.outAmount)<=0)throw Error('Cotação sem rota válida, impacto excessivo ou resposta incompleta');if(q.expireAt&&Date.parse(q.expireAt)<Date.now())throw Error('Cotação expirada');return {inputMint,outputMint,inAmount:q.inAmount,outAmount:q.outAmount,priceImpactPct:q.priceImpactPct,feeBps:q.feeBps,platformFee:q.platformFee,routePlan:q.routePlan,receivedAt:Date.now()};}
+ async quote(inputMint:string,outputMint:string,amount:string){
+  const wait=2200-(Date.now()-this.lastJup);if(wait>0)await new Promise(r=>setTimeout(r,wait));this.lastJup=Date.now();
+  const key=(env as any).JUPITER_API_KEY;
+  const q=await this.json(`https://api.jup.ag/swap/v2/order?${new URLSearchParams({inputMint,outputMint,amount})}`,{headers:key?{'x-api-key':key}:{}});
+  const reject=(code:string)=>{throw Object.assign(Error('Cotação sem rota válida, impacto excessivo ou resposta incompleta'),{code});};
+  // Same acceptance rules; expose which rule rejected the quote, without the raw response.
+  if(q.error||q.errorCode)reject('quote_invalid_response');
+  if(q.inputMint!==inputMint||q.outputMint!==outputMint||q.inAmount!==amount)reject('quote_mismatch');
+  if(!q.routePlan?.length)reject('quote_invalid_route');
+  if(!Number.isFinite(Number(q.priceImpactPct)))reject('quote_invalid_response');
+  if(Math.abs(Number(q.priceImpactPct))>this.state.config.maxImpact)reject('quote_impact');
+  if(!/^\d+$/.test(q.outAmount)||Number(q.outAmount)<=0)reject('quote_invalid_response');
+  if(q.expireAt&&Date.parse(q.expireAt)<Date.now())throw Object.assign(Error('Cotação expirada'),{code:'quote_expired'});
+  return {inputMint,outputMint,inAmount:q.inAmount,outAmount:q.outAmount,priceImpactPct:q.priceImpactPct,feeBps:q.feeBps,platformFee:q.platformFee,routePlan:q.routePlan,receivedAt:Date.now()};
+ }
  async market(){const prices=await this.json(`https://api.jup.ag/price/v3?ids=${SOL},${USDC}`,{headers:(env as any).JUPITER_API_KEY?{'x-api-key':(env as any).JUPITER_API_KEY}:{}});const sol=Number(prices[SOL]?.usdPrice),usdcUsd=Number(prices[USDC]?.usdPrice);if(!(sol>0)||!(usdcUsd>0)||Math.abs(usdcUsd-1)>.01)throw Error('Preço indisponível ou USDC fora da paridade de tolerância');
- const r=await this.request('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',{},'câmbio diário');if(!r.ok)throw Error('Câmbio BCE indisponível');const xml=await r.text(),usd=Number(xml.match(/currency=['"]USD['"]\s+rate=['"]([\d.]+)/)?.[1]),date=xml.match(/time=['"]([\d-]+)/)?.[1];if(!usd||!date||Date.now()-Date.parse(date)>5*86400000)throw Error('Câmbio BCE inválido ou desatualizado');return {sol,usdcUsd,eurPerUsd:1/usd,fxDate:date,time:Date.now()};}
+ const r=await this.request('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',{},'câmbio diário');if(!r.ok)throw Error('Câmbio BCE indisponível');const xml=await r.text(),usd=Number(xml.match(/currency=['"]USD['"]\s+rate=['"]([\d.]+)/)?.[1]),date=xml.match(/time=['"]([\d-]+)/)?.[1];if(!usd||!date||Date.now()-Date.parse(date)>5*86400000)throw Error('Câmbio BCE inválido ou desatualizado');
+ const block=(mint:string)=>Number.isInteger(prices[mint]?.blockId)&&prices[mint].blockId>=0?prices[mint].blockId:null;
+ return {sol,usdcUsd,eurPerUsd:1/usd,fxDate:date,time:Date.now(),sourceBlocks:{sol:block(SOL),usdc:block(USDC)}};}
  async feeSol(){const fees=await this.rpc('getRecentPrioritizationFees');if(!Array.isArray(fees)||!fees.length)throw Error('Estimativa de prioridade indisponível');const x=fees.map(f=>Number(f.prioritizationFee)).filter(Number.isFinite).sort((a,b)=>a-b);if(!x.length)throw Error('Comissões inválidas');return Math.max(50000,5000+x[Math.floor(x.length*.75)]*200000/1e6)/1e9;}
 }

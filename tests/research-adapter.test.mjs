@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {core,encode} from './helpers/modules.mjs';
+const agents=encode(fs.readFileSync('lib/agents.ts','utf8').replace("from './core'",`from '${core}'`));
+const ledger=encode(fs.readFileSync('lib/research-ledger.ts','utf8').replace("from './agents'",`from '${agents}'`));
+const adapter=encode(fs.readFileSync('lib/research-adapter.ts','utf8').replace("from './agents'",`from '${agents}'`).replace("from './research-ledger'",`from '${ledger}'`));
+const {adaptResearchSnapshot}=await import(adapter);
+const T=1_800_000_000_000,wallet='11111111111111111111111111111111';
+const observation=(overrides={})=>({signature:'sig',wallet,sourceTime:T-2000,detectedAt:T,side:'buy',reason:'supported',...overrides});
+const snapshot=(observations=[observation()])=>({schemaVersion:1,kind:'edgewatch_research_snapshot',tradingMode:'paper_only',provenance:{historicalDecisionsReconstructed:false,fullChainHistory:false,containsCredentials:false},observations});
+const context=(overrides={})=>({wallet,signature:'sig',asOf:T,market:{receivedAt:T-1000,solEur:90},lastSuccessAt:T-1000,knownGaps:0,pending:0,quote:{requestedAt:T+1,receivedAt:T+2,priceEur:90,estimatedCostEur:.1,source:'synthetic'},...overrides});
+
+test('histórico sem contexto torna-se HOLD explícito, nunca preço ou saúde inventados',()=>{const d=adaptResearchSnapshot(snapshot());assert.equal(d.ledger.records[0].proposal.action,'HOLD');assert.equal(d.ledger.records[0].quote,null);assert.equal(d.ledger.records[0].observation.health.knownGaps,null);assert.equal(d.ledger.records[0].observation.health.pending,null);assert.deepEqual(d.ledger.records[0].proposal.reasonCodes,['historical_context_incomplete','market_not_fresh','collection_not_recent']);assert.equal(d.unresolved[0].reason,'historical_context_incomplete');});
+test('contexto causal completo produz decisão e cotação virtual alinhadas',()=>{const d=adaptResearchSnapshot(snapshot(),[context()]);assert.equal(d.ledger.records[0].proposal.action,'BUY');assert.equal(d.ledger.records[0].quote.priceEur,90);assert.deepEqual(d.coverage,{exported:1,records:1,ignored:0,aligned:1,quoted:1});});
+test('sinal ignorado não é promovido a decisão nem aceita contexto',()=>{const s=snapshot([observation({side:'ignore'})]),d=adaptResearchSnapshot(s);assert.equal(d.ledger.records.length,0);assert.equal(d.coverage.ignored,1);assert.equal(d.unresolved[0].reason,'unsupported_signal');assert.throws(()=>adaptResearchSnapshot(s,[context()]),/sinal ignorado/);});
+test('contexto futuro, duplicado ou sem observação é rejeitado',()=>{assert.throws(()=>adaptResearchSnapshot(snapshot(),[context({market:{receivedAt:T+1,solEur:90}})]),/Contexto alinhado inválido/);assert.throws(()=>adaptResearchSnapshot(snapshot(),[context(),context()]),/duplicado/);assert.throws(()=>adaptResearchSnapshot(snapshot(),[context({signature:'outro'})]),/sem observação/);});
+test('observações duplicadas ou temporalmente impossíveis são rejeitadas',()=>{assert.throws(()=>adaptResearchSnapshot(snapshot([observation(),observation()])),/duplicada/);assert.throws(()=>adaptResearchSnapshot(snapshot([observation({sourceTime:T+1})])),/inválida/);});
+test('adaptação é determinística e não muta exportação ou contexto',()=>{const s=snapshot([observation({signature:'b',detectedAt:T+10}),observation({signature:'a'})]),contexts=[context({signature:'a'})],before=JSON.stringify({s,contexts}),a=adaptResearchSnapshot(s,contexts),b=adaptResearchSnapshot(s,contexts);assert.deepEqual(a,b);assert.equal(JSON.stringify({s,contexts}),before);assert.deepEqual(a.ledger.records.map(r=>r.proposal.signalSignature),['a','b']);});
+test('desempate usa ordem por unidades de código, independente da região',()=>{const s=snapshot([observation({signature:'ä'}),observation({signature:'z'})]),d=adaptResearchSnapshot(s);assert.deepEqual(d.ledger.records.map(r=>r.proposal.signalSignature),['z','ä']);});

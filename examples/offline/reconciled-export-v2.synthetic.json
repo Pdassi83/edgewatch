@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "kind": "edgewatch_research_snapshot",
+  "tradingMode": "paper_only",
+  "exportedAt": 1800000005000,
+  "provenance": {
+    "observations": "real_finalized_rpc_sample",
+    "executions": "virtual_quote_based",
+    "money": "virtual_eur",
+    "historicalDecisionsReconstructed": false,
+    "fullChainHistory": false,
+    "archiveDetailsIncluded": false,
+    "runtimeSource": "sites_v10_reconciled",
+    "containsCredentials": false
+  },
+  "limitations": [
+    "Synthetic fixture for the reconciled research export contract.",
+    "No historical context or aligned execution quote is included."
+  ],
+  "config": {
+    "capital": 100,
+    "interval": 60,
+    "maxTraders": 3,
+    "perTrade": 10,
+    "perTrader": 20,
+    "perAsset": 30,
+    "daily": 2,
+    "weekly": 5,
+    "drawdown": 10,
+    "slippageBps": 50,
+    "maxImpact": 1,
+    "maxAge": 900
+  },
+  "metrics": {
+    "schemaVersion": 2,
+    "tradingMode": "paper_only",
+    "generatedAt": 1800000005000,
+    "freshness": {},
+    "coverage": {
+      "externalHistoryNotIncluded": false,
+      "archiveDetailsIncluded": false
+    },
+    "decisions": {},
+    "portfolios": [],
+    "requests": {},
+    "warnings": [],
+    "retention": {
+      "policy": "sites_v10_archive",
+      "runtimeReconciliationRequired": false,
+      "archiveDetailsRequiredForCompleteExport": false
+    }
+  },
+  "observations": [
+    {
+      "signature": "branch-demo-buy-001",
+      "wallet": "branch-demo-wallet-a",
+      "sourceTime": 1799999999000,
+      "detectedAt": 1800000000000,
+      "side": "buy",
+      "reason": "synthetic_supported",
+      "originalPriceUsdcPerSol": 100,
+      "audit": null
+    },
+    {
+      "signature": "branch-demo-no-time-001",
+      "wallet": "branch-demo-wallet-b",
+      "sourceTime": 0,
+      "detectedAt": 1800000001000,
+      "side": "ignore",
+      "reason": "synthetic_missing_block_time",
+      "originalPriceUsdcPerSol": null,
+      "audit": null
+    },
+    {
+      "signature": "branch-demo-ignore-001",
+      "wallet": "branch-demo-wallet-c",
+      "sourceTime": 1800000001000,
+      "detectedAt": 1800000002000,
+      "side": "ignore",
+      "reason": "synthetic_unsupported_signal",
+      "originalPriceUsdcPerSol": null,
+      "audit": null
+    }
+  ],
+  "virtualTrades": [],
+  "virtualPortfolios": [],
+  "virtualBenchmark": null
+}
