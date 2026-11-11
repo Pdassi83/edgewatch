@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "edgewatch_research_snapshot",
   "tradingMode": "paper_only",
   "exportedAt": 1800000005000,
@@ -9,10 +9,12 @@
     "money": "virtual_eur",
     "historicalDecisionsReconstructed": false,
     "fullChainHistory": false,
+    "archiveDetailsIncluded": false,
+    "runtimeSource": "sites_v10_reconciled",
     "containsCredentials": false
   },
   "limitations": [
-    "Synthetic fixture for the known GitHub branch export contract.",
+    "Synthetic fixture for the reconciled research export contract.",
     "No historical context or aligned execution quote is included."
   ],
   "config": {
@@ -30,20 +32,22 @@
     "maxAge": 900
   },
   "metrics": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "tradingMode": "paper_only",
     "generatedAt": 1800000005000,
     "freshness": {},
     "coverage": {
-      "externalHistoryNotIncluded": false
+      "externalHistoryNotIncluded": false,
+      "archiveDetailsIncluded": false
     },
     "decisions": {},
     "portfolios": [],
     "requests": {},
     "warnings": [],
     "retention": {
-      "policy": "github_baseline",
-      "runtimeReconciliationRequired": false
+      "policy": "sites_v10_archive",
+      "runtimeReconciliationRequired": false,
+      "archiveDetailsRequiredForCompleteExport": false
     }
   },
   "observations": [

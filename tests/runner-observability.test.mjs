@@ -57,10 +57,10 @@ test('telemetria confirma falha e recuperação após persistência JSON e inter
 });
 test('pausa, intervalo e retenção impedem fontes e não criam telemetria fictícia',async t=>{
  const [s,f]=setup(t);s.paused=true;await run();assert.equal(s.telemetry,undefined);s.paused=false;s.lastRun=f.now;await run();assert.equal(s.telemetry,undefined);
- s.lastRun=null;s.signals=Array.from({length:1500},()=>({side:'ignore'}));await run();assert.equal(s.paused,true);assert.equal(s.telemetry,undefined);assert.equal(f.methods.length,0);
+ s.lastRun=null;s.signals=Array.from({length:1500},()=>({side:'buy'}));await run();assert.equal(s.paused,true);assert.equal(s.telemetry,undefined);assert.equal(f.methods.length,0);
 });
-test('janela revela transações fora do lote sem alterar amostragem existente',async t=>{
- const [s,f]=setup(t);f.signatures=Array.from({length:8},(_,i)=>'synthetic-'+i);await run();const w=s.wallets[0];assert.equal(s.signals.length,4);assert.equal(w.collectionWindow.omittedFromBatch,4);assert.equal(w.collectionWindow.windowMayBeTruncated,true);assert.equal(w.collectionWindow.cursorFound,false);assert.equal(w.gap,true);
+test('janela conserva todos os candidatos na fila e distingue backlog de lacuna',async t=>{
+ const [s,f]=setup(t);f.signatures=[...Array.from({length:8},(_,i)=>'synthetic-'+i),'synthetic-cursor'];await run();const w=s.wallets[0];assert.equal(s.signals.length,4);assert.equal(w.collectionWindow.limit,128);assert.equal(w.collectionWindow.queued,8);assert.equal(w.collectionWindow.omittedFromBatch,0);assert.equal(w.collectionWindow.windowMayBeTruncated,false);assert.equal(w.collectionWindow.cursorFound,true);assert.equal(w.gap,false);assert.equal(w.pending.signatures.length,4);assert.equal(w.pending.through,'synthetic-0');
 });
 test('primeiro lote fica histórico; não cria operações virtuais mesmo com swaps válidos',async t=>{
  const [s,f]=setup(t);s.wallets[0].cursor=null;f.signatures=['synthetic-first'];await run();assert.equal(s.signals[0].audit.historical,true);assert.equal(s.signals[0].audit.decisions[0].code,'historical_sample');assert(s.portfolios.every(p=>p.trades.length===0));assert.equal(f.quotes,0);

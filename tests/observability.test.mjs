@@ -57,11 +57,18 @@ test('filtros de exposição mostram valores, limites e duplicação sem alterar
  const s=setup(),p=s.portfolios[0],sig=signal();buy(p,s.config,sig,.09,9,.1,100,{},now);
  const before=JSON.stringify(p),d=buyEvidence(p,s,sig,1,100,.1,100);assert.equal(d.duplicate,true);assert.equal(d.insufficientCash,true);assert.equal(d.tradeLimitExceeded,true);assert.equal(d.walletLimitExceeded,true);assert.equal(d.assetLimitExceeded,true);assert.equal(JSON.stringify(p),before);
 });
-test('observações com arquivos externos são exportadas como registo ativo incompleto',()=>{
+test('arquivo v10 é declarado sem fingir que o diagnóstico ativo contém o detalhe',()=>{
  const s=setup();s.archive={signals:200,logs:1000};s.archivedIgnored={count:400};s.signals=[signal()];
- const x=researchExport(s,now);assert.equal(x.metrics.coverage.externalHistoryNotIncluded,true);assert.equal(x.metrics.retention.runtimeReconciliationRequired,true);
- assert.equal(x.provenance.fullChainHistory,false);assert.equal(x.observations.length,1);assert.equal(x.observations[0].audit,null);assert.equal(x.tradingMode,'paper_only');
+ const x=researchExport(s,now);assert.equal(x.schemaVersion,2);assert.equal(x.metrics.schemaVersion,2);assert.equal(x.metrics.coverage.externalHistoryNotIncluded,true);assert.equal(x.metrics.retention.runtimeReconciliationRequired,false);assert.equal(x.metrics.retention.archiveDetailsRequiredForCompleteExport,true);
+ assert.equal(x.provenance.fullChainHistory,false);assert.equal(x.provenance.runtimeSource,'sites_v10_reconciled');assert.equal(x.provenance.archiveDetailsIncluded,false);assert.equal(x.observations.length,1);assert.equal(x.observations[0].audit,null);assert.equal(x.tradingMode,'paper_only');
  assert(x.metrics.warnings.some(w=>w.code==='external_history'));
+});
+test('diagnóstico separa estado ativo, totais cumulativos e exportação reidratada sem duplicar',()=>{
+ const s=setup(),p=s.portfolios[0];s.signals=[signal()];s.logs=[{time:now,message:'ativo'}];p.series=[{time:now-1,equity:100},{time:now,equity:90}];s.archive={signals:2,logs:3,series:{simple:4},reasons:{synthetic_archived:2},last:now,bytes:120};
+ let d=diagnostics(s,now);assert.equal(d.coverage.currentLedgerObservations,1);assert.equal(d.coverage.cumulativeLedgerObservations,3);assert.equal(d.retention.activeLogs,1);assert.equal(d.retention.cumulativeLogs,4);assert.equal(d.coverage.archiveDetailsIncluded,false);assert.equal(d.portfolios[0].snapshotCountCumulative,6);assert.equal(d.portfolios[0].snapshotHistoryComplete,false);assert.equal(d.portfolios[0].maxSnapshotDrawdownPct,null);assert(Math.abs(d.portfolios[0].maxActiveSnapshotDrawdownPct-10)<1e-9);
+ const full=structuredClone(s);full.signals.push(signal({signature:'archived-1',side:'ignore'}),signal({signature:'archived-2',side:'ignore'}));full.logs.push(...Array.from({length:3},(_,i)=>({time:now+i+1,message:`arquivado-${i}`})));full.portfolios[0].series.unshift(...Array.from({length:4},(_,i)=>({time:now-10+i,equity:100-i})));full.exportMeta={includesArchive:true};
+ d=diagnostics(full,now);assert.equal(d.coverage.cumulativeLedgerObservations,3);assert.equal(d.retention.cumulativeLogs,4);assert.equal(d.coverage.archiveDetailsIncluded,true);assert.equal(d.coverage.externalHistoryNotIncluded,false);assert.equal(d.portfolios[0].snapshotCountCumulative,6);assert.equal(d.portfolios[0].snapshotHistoryComplete,true);assert.notEqual(d.portfolios[0].maxSnapshotDrawdownPct,null);
+ const exported=researchExport(full,now);assert.equal(exported.provenance.archiveDetailsIncluded,true);assert(exported.limitations.some(x=>x.includes('includes the automatic archive details')));
 });
 test('avisos úteis reutilizam o diagnóstico granular e aceitam a contagem publicada sem inventar o esquema persistido',()=>{
  const s=setup();s.market.time=now-180001;s.lastSuccess=now-7200001;s.wallets=[{address:wallet,gap:true,pending:{count:44,historical:false},observed:1,swaps:0}];
