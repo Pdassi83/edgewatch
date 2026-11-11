@@ -24,10 +24,10 @@ function harness(state){
 function fixture(){const state=initial();initPortfolios(state);state.paused=true;state.market={sol:100,eurPerUsd:1,usdcUsd:1,fxDate:'2026-11-06',time:Date.now()};return state;}
 
 test('edição de configuração sobrevive a uma atualização após ação do painel',async t=>{
- const state=fixture(),page=harness(state),requests=[],oldFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=oldFetch;});
+ const state=fixture();state.paused=false;const page=harness(state),requests=[],oldFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=oldFetch;});
  globalThis.fetch=async(url,options)=>{requests.push({url,options});return Response.json(url==='/api/action'?{status:'fixture'}:state);};
- let tree=page.render();find(tree,'button','Configurações').props.onClick();tree=page.render();field(tree,'Exposição por operação (%)').props.onChange({target:{value:'7'}});tree=page.render();assert.equal(field(tree,'Exposição por operação (%)').props.value,7);
- await find(tree,'button','Recolher agora').props.onClick();tree=page.render();assert.equal(field(tree,'Exposição por operação (%)').props.value,7);assert.equal(JSON.parse(requests[0].options.body).action,'run');assert.equal(requests[1].url,'/api/state');
+ let tree=page.render();find(tree,'button','Mais').props.onClick();tree=page.render();find(tree,'button','Definições').props.onClick();tree=page.render();field(tree,'Exposição por operação (%)').props.onChange({target:{value:'7'}});tree=page.render();assert.equal(field(tree,'Exposição por operação (%)').props.value,7);
+ await find(tree,'button','Atualizar dados').props.onClick();tree=page.render();assert.equal(field(tree,'Exposição por operação (%)').props.value,7);assert.equal(JSON.parse(requests[0].options.body).action,'run');assert.equal(requests[1].url,'/api/state');
 });
 
 test('exportação descarrega o arquivo do servidor e só então autoriza limpeza com fingerprint',async t=>{
@@ -36,7 +36,7 @@ test('exportação descarrega o arquivo do servidor e só então autoriza limpez
  t.after(()=>{globalThis.fetch=oldFetch;if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;URL.createObjectURL=oldCreate;URL.revokeObjectURL=oldRevoke;});
  globalThis.fetch=async(url,options)=>{requests.push({url,options});return Response.json(url==='/api/state?export=1'?full:url==='/api/action'?{status:'fixture'}:state);};
  globalThis.document={createElement(tag){assert.equal(tag,'a');return {click(){clicks++;}};}};URL.createObjectURL=blob=>{downloaded=blob;return 'blob:synthetic-download';};URL.revokeObjectURL=()=>{};
- let tree=page.render();find(tree,'button','Configurações').props.onClick();tree=page.render();assert.equal(find(tree,'button','Limpar sinais ignorados').props.disabled,true);
+ let tree=page.render();find(tree,'button','Mais').props.onClick();tree=page.render();find(tree,'button','Definições').props.onClick();tree=page.render();assert.equal(find(tree,'button','Limpar sinais ignorados').props.disabled,true);
  // The active state has an ignored signal, while the export additionally contains archived detail.
  state.signals=[{...archived,signature:'active-fixture'}];tree=page.render();await find(tree,'button','Exportar experiência completa').props.onClick();tree=page.render();
  assert.equal(clicks,1);assert.deepEqual(JSON.parse(await downloaded.text()),full);assert.equal(requests[0].url,'/api/state?export=1');assert.equal(requests[0].options.cache,'no-store');assert.equal(find(tree,'button','Limpar sinais ignorados').props.disabled,false);
@@ -44,7 +44,28 @@ test('exportação descarrega o arquivo do servidor e só então autoriza limpez
 });
 
 test('valorização assinala preço com mais de 180 segundos independentemente do intervalo',()=>{
- const state=fixture();state.config.interval=120;state.market.time=Date.now()-180001;let page=harness(state);assert(text(page.render()).includes('preço anterior'));
- state.market.time=Date.now();page=harness(state);assert(text(page.render()).includes('inclui posição aberta'));
- const tree=page.render();find(tree,'button','Diagnóstico').props.onClick();assert(elements(page.render()).some(node=>node.type.name==='LabDiagnostics'&&node.props.state===state));
+ const state=fixture();state.config.interval=120;state.market.time=Date.now()-180001;let page=harness(state);assert(text(page.render()).includes('O preço tem mais de 3 minutos'));
+ state.market.time=Date.now();page=harness(state);assert(!text(page.render()).includes('O preço tem mais de 3 minutos'));
+ let tree=page.render();find(tree,'button','Mais').props.onClick();tree=page.render();find(tree,'button','Saúde técnica').props.onClick();assert(elements(page.render()).some(node=>node.type.name==='LabDiagnostics'&&node.props.state===state));
+});
+
+test('resumo mostra apenas o essencial e mantém detalhes fechados por defeito',()=>{
+ const state=fixture(),tree=harness(state).render(),labels=elements(tree).filter(node=>node.type==='button').map(text);
+ assert(text(tree).includes('Valor da simulação'));assert(text(tree).includes('Resultado virtual'));assert(text(tree).includes('Operações abertas'));assert(text(tree).includes('PRÓXIMO PASSO'));
+ assert(text(tree).includes('Pontos recentes'));
+ assert.deepEqual(labels.filter(label=>['Resumo','Carteiras','Atividade','Mais'].includes(label)),['Resumo','Carteiras','Atividade','Mais']);
+ const details=elements(tree).find(node=>node.type==='details'&&text(node).includes('Ver detalhes do laboratório'));assert(details);assert.equal(details.props.open,undefined);
+});
+
+test('resumo nunca apresenta uma recolha interrompida como saudável e respeita o intervalo',()=>{
+ const now=Date.now(),state=fixture();state.paused=false;state.status='Circuito interrompido';state.lastSuccess=now-1000;state.lastRun=now-120000;state.market.time=now-1000;state.telemetry={lastCycle:{outcome:'failed'}};
+ let tree=harness(state).render(),copy=text(tree),waiting=elements(tree).filter(node=>node.type==='button'&&text(node).startsWith('Disponível em'));
+ assert(copy.includes('Precisa de atenção'));assert(copy.includes('A última recolha foi interrompida'));assert(!copy.includes('Tudo em ordem'));assert.equal(waiting.length,2);assert(waiting.every(node=>node.props.disabled));
+ state.lastRun=now-state.config.interval*60000-1000;tree=harness(state).render();assert.equal(find(tree,'button','Tentar novamente').props.disabled,false);assert.equal(find(tree,'button','Atualizar dados').props.disabled,false);
+});
+
+test('preço antigo não promete atualização antes do intervalo mínimo',()=>{
+ const now=Date.now(),state=fixture();state.paused=false;state.status='Recolha concluída';state.lastSuccess=now-240000;state.lastRun=now-240000;state.market.time=now-180001;state.wallets=[{address:'synthetic-wallet',added:now-100000,cursor:null,status:'Em observação',observed:1,swaps:1,gap:false}];
+ const tree=harness(state).render(),copy=text(tree),waiting=elements(tree).filter(node=>node.type==='button'&&text(node).startsWith('Disponível em'));
+ assert(copy.includes('O preço tem mais de 3 minutos'));assert(copy.includes('Aguarda a próxima atualização'));assert.equal(waiting.length,2);assert(waiting.every(node=>node.props.disabled));
 });

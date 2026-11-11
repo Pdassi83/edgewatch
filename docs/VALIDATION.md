@@ -16,12 +16,12 @@ Ambiente: Windows, Node **v22.20.0**, pnpm **11.25.0**, dependências já dispon
 
 | Verificação | Resultado |
 | --- | --- |
-| `node --test tests/*.test.mjs` | **184 testes passaram; 0 falhas; 0 ignorados** |
+| `node --test tests/*.test.mjs` | **187 testes passaram; 0 falhas; 0 ignorados** |
 | `pnpm exec tsc --noEmit` | PASS |
 | `pnpm build` | PASS; cliente, RSC e SSR compilados, incluindo `/api/diagnostics`, `/api/state` e `/mcp` |
 | `git diff --check` | PASS |
 | `python tests/persistence.py` | NÃO EXECUTADO: o ambiente expõe apenas o alias inacessível da Microsoft Store e não tem `py` |
-| `pnpm lint` | FALHA conhecida: 42 erros do conjunto consolidado, concentrados em `any` explícito e regras React/Next; não é apresentado como PASS |
+| `pnpm lint` | FALHA conhecida: 42 erros do conjunto consolidado, concentrados em `any` explícito e regras React/Next; a simplificação da interface não acrescentou erros |
 
 O aviso de classificação estática de rotas do Vinext e o relatório de tempos dos plugins não impediram o build. Compilar não publica a aplicação. Os sete testes do store usam o SQLite incorporado no Node e exercitam o SQL real, mas não substituem o teste Python nem certificam o D1 gerido.
 
@@ -35,7 +35,7 @@ O aviso de classificação estática de rotas do Vinext e o relatório de tempos
 - Exportação completa por `/api/state?export=1`, fingerprint do estado ativo e limpeza manual protegida por pausa e cópia recente.
 - Diagnóstico puro, totais ativos/cumulativos, arquivo incluído ou ausente sem dupla contagem, avisos, métricas, API `no-store` e erro sanitizado.
 - MCP 0.2 com `collect` e `status`, preservando totais e resumos sem expor assinaturas pendentes, `through` ou `discovery.seen`.
-- Interface v10: edição de configuração, exportação antes da limpeza, frescura de 180 segundos e separador de diagnóstico.
+- Interface v10 simplificada: resumo com três métricas essenciais, próximo passo, detalhes recolhidos por defeito, navegação avançada em `Mais`, falha e bloqueio de mercado visíveis, intervalo mínimo respeitado, edição de configuração, exportação antes da limpeza, frescura de 180 segundos e acesso ao diagnóstico.
 - Pipeline offline v2, projetor estrito da exportação de investigação reconciliada, hashes canónicos, quarentena temporal, execução fora da pasta do projeto e rejeição de estado bruto v10/D1.
 - Baselines BRAIN/REFLEX continuam apenas observacionais e offline; não são chamados pelo runner e não executam nem recomendam operações reais.
 
@@ -47,7 +47,7 @@ Todos os pedidos de rede, RPC, Jupiter e BCE foram substituídos por fixtures no
 2. Não houve ensaio num ambiente privado de staging com cópia segura/anónima de dados representativos. Por isso, CPU, quotas, tamanho de payload, dispatch privado e comportamento do D1 gerido não estão certificados.
 3. O teste Python de persistência não pôde ser repetido neste computador. Os testes SQLite do Node cobrem atomicidade e concorrência equivalentes no código atual, mas esta limitação permanece explícita.
 4. O lint completo ainda falha e deve ser tratado antes de o tornar um gate obrigatório. TypeScript, testes e build passam.
-5. Não se afirma validação visual completa em navegador desktop/mobile. Os testes cobrem renderização e interações críticas de forma sintética.
+5. O resumo e a navegação avançada foram inspecionados num navegador local em viewport estreito. Não se afirma ainda validação visual completa em desktop e vários dispositivos; os testes também cobrem renderização e interações críticas de forma sintética.
 6. A amostra do laboratório continua incompleta: não há histórico total da cadeia, frescura comprovada na origem, ranking real 7/30/90 dias nem base estatística suficiente para concluir vantagem.
 
 Assim, o PR pode ser revisto como consolidação de código, mas permanece **bloqueado para publicação** até à verificação do D1 e ao ensaio de staging. O bloqueio anterior — indisponibilidade do código-fonte v10 — está resolvido.
