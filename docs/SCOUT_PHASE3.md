@@ -24,13 +24,13 @@ A ordem preserva as carteiras existentes; não cria um ranking por lucro. Um ind
 2. A proporção de swaps reconhecidos é uma métrica de compatibilidade com o parser restrito; carteiras com outros protocolos ou tokens podem parecer piores sem o serem.
 3. Os limiares 30/5/10 são regras provisórias para organizar trabalho de investigação. Precisam de avaliação com dados independentes e não foram escolhidos por uma otimização retrospetiva.
 4. Não comparar P/L de estratégias ou escolher vencedores com base nestes diagnósticos. O próximo passo seria validar origem/qualidade dos dados, depois construir um dataset temporal completo com custos e preços alinhados.
-5. Uma produção Sites v10 usa um contrato persistido e arquivo ainda não reconciliados com a branch GitHub. **Não publicar sem recuperar o código/migrações correspondentes e validar staging privado.**
+5. O código e as migrações da produção Sites v10 foram reconciliados no PR #4. O SCOUT foi atualizado sobre essa base, preservando a fila persistente e a distinção entre drawdown ativo e histórico arquivado. **A validação do D1 gerido e do staging privado continua separada da reconciliação do código; não promover para produção sem a concluir.**
 6. Não adicionar endereços ou dados privados reais aos testes, logs públicos ou repositório.
 
 ## Verificação
 
 `tests/scout.test.mjs` cobre incompatibilidade aparente, lacunas, amostra mínima, filas em ambos os formatos, contadores impossíveis, fuga temporal e ausência de mutações. `tests/diagnostics-ui.test.mjs` testa a apresentação com dados sintéticos.
 
-A branch foi criada sobre `codex/edgewatch-observability-consolidated` (PR #4) para manter a evolução separada do `main`; o novo PR deve apontar inicialmente para essa branch. Qualquer promoção depende da reconciliação e da revisão do PR #4.
+A branch foi criada sobre `codex/edgewatch-observability-consolidated` (PR #4) para manter a evolução separada do `main`; o PR #5 mantém essa base. Em 17-11-2026, a integração recebeu as alterações posteriores do PR #4 sem reescrever o histórico. Qualquer promoção depende da validação e revisão do conjunto integrado.
 
 Sem serviço pago, trading real, alterações às tarefas agendadas, deploy, merge ou alteração de armazenamento.

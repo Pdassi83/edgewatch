@@ -107,6 +107,12 @@ function distribution(values:number[]){
 /** Pure projection: reading metrics must never update risk, cursors or P/L. */
 export function diagnostics(s:State,now=Date.now()){
  const lastSuccessAgeMs=age(s.lastSuccess,now),marketReceiptAgeMs=age(s.market?.time,now);
+ const exportMeta=(s as State&{exportMeta?:{includesArchive?:boolean}}).exportMeta,archiveDetailsIncluded=exportMeta?.includesArchive===true;
+ const archivedSignals=s.archive?.signals??0,archivedLogs=s.archive?.logs??0,archivedSeries=Object.values(s.archive?.series??{}).reduce((sum,value)=>sum+value,0),manuallyRemoved=s.archivedIgnored?.count??0;
+ const automaticArchiveDetailsMissing=!archiveDetailsIncluded&&(archivedSignals>0||archivedLogs>0||archivedSeries>0),manualDetailsMissing=manuallyRemoved>0,externalHistory=automaticArchiveDetailsMissing||manualDetailsMissing;
+ const activePending=s.wallets.reduce((sum,w)=>sum+pendingCount(w.pending),0);
+ const activeTotals={signals:s.signals.length+manuallyRemoved+archivedSignals,swaps:s.signals.filter(x=>x.side!=='ignore').length,logs:s.logs.length+archivedLogs,pending:activePending};
+ const totals=archiveDetailsIncluded?{signals:s.signals.length+manuallyRemoved,swaps:s.signals.filter(x=>x.side!=='ignore').length,logs:s.logs.length,pending:activePending}:activeTotals;
  const marketValuesValid=!!s.market&&[s.market.sol,s.market.eurPerUsd,s.market.usdcUsd].every(v=>finite(v)&&v>0);
  const valuationAvailable=marketValuesValid&&marketReceiptAgeMs!==null;
  const price=valuationAvailable?s.market!.sol*s.market!.eurPerUsd:null;
@@ -118,31 +124,30 @@ export function diagnostics(s:State,now=Date.now()){
   const marked=price===null?null:equity(p,price),currentDrawdownPct=marked===null||p.peak<=0?null:Math.max(0,(1-marked/p.peak)*100);
   let peak=s.config.capital,maxSnapshotDrawdownPct=0;
   for(const point of [...p.series].sort((a,b)=>a.time-b.time))if(finite(point.equity)){peak=Math.max(peak,point.equity);if(peak>0)maxSnapshotDrawdownPct=Math.max(maxSnapshotDrawdownPct,(1-point.equity/peak)*100);}
-  const explicitCosts=p.trades.map(t=>t.cost).filter(finite);
+  const explicitCosts=p.trades.map(t=>t.cost).filter(finite),archivedSnapshotCount=s.archive?.series?.[p.id]??0,snapshotHistoryComplete=archiveDetailsIncluded||archivedSnapshotCount===0;
   return {id:p.id,label:p.label,tradingMode:'paper_only' as const,trades:p.trades.length,closed:closed.length,
    wins:pnls.filter(v=>v>0).length,losses:pnls.filter(v=>v<0).length,breakEven:pnls.filter(v=>v===0).length,
    winRate:closed.length?pnls.filter(v=>v>0).length/closed.length:null,realizedPnlEur:pnls.reduce((n,v)=>n+v,0),
    equityEur:marked,totalPnlEur:marked===null?null:marked-s.config.capital,valuationStale:!valuationAvailable||marketReceiptAgeMs===null||marketReceiptAgeMs>180000,
    explicitEstimatedCostsEur:explicitCosts.reduce((n,v)=>n+v,0),tradesWithKnownExplicitCost:explicitCosts.length,
    embeddedVenueCostsEur:null,adverseHaircutBps:s.config.slippageBps,currentDrawdownPct,
-   maxSnapshotDrawdownPct:p.series.length?maxSnapshotDrawdownPct:null,snapshotCount:p.series.length,
+   maxSnapshotDrawdownPct:p.series.length&&snapshotHistoryComplete?maxSnapshotDrawdownPct:null,maxActiveSnapshotDrawdownPct:p.series.length?maxSnapshotDrawdownPct:null,
+   snapshotCount:p.series.length,snapshotCountCumulative:archiveDetailsIncluded?p.series.length:p.series.length+archivedSnapshotCount,archivedSnapshotCount,snapshotHistoryComplete,
    haltedByDrawdown:p.halted,twoLossSuspensions:p.id==='two-loss'?Object.values(p.losses).filter(n=>n>=2).length:0,
    detectionLagMs:distribution(p.trades.map(t=>t.detected-t.sourceTime)),executionLagMs:distribution(p.trades.map(t=>t.time-t.sourceTime)),
   };
  });
- // A newer production format may have archives. Never claim they are in this snapshot.
- const extended=s as State&{archive?:{signals?:number;logs?:number;series?:Record<string,number>};archivedIgnored?:{count?:number}};
- const externalHistory=!!extended.archive||!!extended.archivedIgnored;
  const today=new Date(now).toISOString().slice(0,10);
- return {schemaVersion:1,tradingMode:'paper_only' as const,generatedAt:now,
+ return {schemaVersion:2,tradingMode:'paper_only' as const,generatedAt:now,
   freshness:{lastSuccessAgeMs,collectionOlderThanTwoHours:lastSuccessAgeMs===null||lastSuccessAgeMs>7200000,
    marketReceiptAgeMs,marketReceiptValid:marketValuesValid&&marketReceiptAgeMs!==null,marketReceiptStale:marketReceiptAgeMs===null||marketReceiptAgeMs>180000,
    upstreamPriceAgeMs:null,upstreamPriceAgeVerified:false,sourceBlocks:s.market?.sourceBlocks??null,
    fxDate:s.market?.fxDate??null,fxCalendarAgeDays:s.market?.fxDate&&finite(Date.parse(s.market.fxDate))?Math.floor((now-Date.parse(s.market.fxDate))/86400000):null},
-  coverage:{fullChainCoverage:null,completeHistory:false,currentLedgerObservations:s.signals.length,currentLedgerSupportedSwaps:parseable.length,
+  coverage:{fullChainCoverage:null,completeHistory:false,currentLedgerObservations:s.signals.length,cumulativeLedgerObservations:totals.signals,
+   automaticallyArchivedObservations:archivedSignals,manuallyRemovedObservations:manuallyRemoved,currentLedgerSupportedSwaps:parseable.length,cumulativeSupportedSwaps:totals.swaps,
    parserAcceptanceInCurrentLedger:s.signals.length?parseable.length/s.signals.length:null,
    signalsWithStructuredAudit:audited.length,legacySignalsWithoutStructuredAudit:s.signals.length-audited.length,
-   externalHistoryNotIncluded:externalHistory,pending:s.wallets.reduce((n,w)=>n+pendingCount(w.pending),0),
+   externalHistoryNotIncluded:externalHistory,archiveDetailsIncluded,pending:s.wallets.reduce((n,w)=>n+pendingCount(w.pending),0),
    detectionLagMs:distribution(s.signals.filter(x=>x.time>0).map(x=>x.detected-x.time)),
    wallets:s.wallets.map(w=>({address:w.address,knownGap:w.gap,observed:w.observed,supportedSwaps:w.swaps,
     pending:pendingCount(w.pending),pendingHistorical:w.pending?.historical??null,lastWindow:w.collectionWindow??null}))},
@@ -156,23 +161,26 @@ export function diagnostics(s:State,now=Date.now()){
    ...(lastSuccessAgeMs===null||lastSuccessAgeMs>7200000?[{code:'collection_overdue',severity:'warning' as const,message:'Não existe uma recolha bem-sucedida confirmada nas últimas duas horas.'}]:[]),
    ...(s.wallets.some(w=>w.gap)?[{code:'coverage_gaps',severity:'warning' as const,message:'Existem carteiras com lacunas conhecidas; a amostra não representa o histórico completo.'}]:[]),
    ...(s.wallets.reduce((n,w)=>n+pendingCount(w.pending),0)>0?[{code:'pending_transactions',severity:'warning' as const,message:'Existem transações pendentes para ciclos posteriores.'}]:[]),
-   ...(externalHistory?[{code:'external_history',severity:'warning' as const,message:'A produção refere arquivo externo; esta projeção não inclui o respetivo detalhe.'}]:[]),
+   ...(externalHistory?[{code:'external_history',severity:'warning' as const,message:'Existem detalhes fora do registo ativo; use a exportação completa do estado para incluir o arquivo automático. Observações removidas manualmente conservam apenas os respetivos resumos.'}]:[]),
   ],
-  retention:{policy:'github_baseline',payloadUtf8Bytes:new TextEncoder().encode(JSON.stringify(s)).byteLength,providerTextLimitBytes:2000000,
-   signals:s.signals.length,signalLimit:1500,logs:s.logs.length,logLimit:6000,
-   snapshotLimitPerPortfolio:2000,reached:s.signals.length>=1500||s.logs.length>=6000||s.portfolios.some(p=>p.series.length>=2000),
-   runtimeReconciliationRequired:externalHistory},
+  retention:{policy:'sites_v10_archive',payloadUtf8Bytes:new TextEncoder().encode(JSON.stringify(s)).byteLength,providerTextLimitBytes:2000000,
+   activeSignals:s.signals.length,cumulativeSignals:totals.signals,supportedSwaps:totals.swaps,supportedSwapLimit:1500,
+   activeLogs:s.logs.length,cumulativeLogs:totals.logs,archiveBytes:s.archive?.bytes??0,archiveByteLimit:16*1024*1024,
+   automaticArchive:{chunkItems:200,ignoredArchiveAbove:500,ignoredKept:250,logsArchiveAbove:1600,logsKept:1200,seriesArchiveAbove:800,seriesKept:600},
+   reached:totals.swaps>=1500||(s.archive?.bytes??0)>=16*1024*1024,runtimeReconciliationRequired:false,archiveDetailsRequiredForCompleteExport:externalHistory},
  };
 }
 
 /** Analysis export from the same persisted state; no provider calls or new decisions. */
 export function researchExport(s:State,now=Date.now()){
- return {schemaVersion:1,kind:'edgewatch_research_snapshot',tradingMode:'paper_only',exportedAt:now,
+ const archiveDetailsIncluded=(s as State&{exportMeta?:{includesArchive?:boolean}}).exportMeta?.includesArchive===true;
+ return {schemaVersion:2,kind:'edgewatch_research_snapshot',tradingMode:'paper_only',exportedAt:now,
   provenance:{observations:'real_finalized_rpc_sample',executions:'virtual_quote_based',money:'virtual_eur',
-   historicalDecisionsReconstructed:false,fullChainHistory:false,containsCredentials:false},
+   historicalDecisionsReconstructed:false,fullChainHistory:false,archiveDetailsIncluded,runtimeSource:'sites_v10_reconciled',containsCredentials:false},
   limitations:['Partial chain sample; full-chain coverage is unknown.','Price age uses response receipt; upstream age is unverified.',
    'Drawdown is observed at snapshots; intraperiod extremes are unknown.','Explicit costs are estimates; embedded venue fees are not separately reconstructed.',
-   'This export contains the active ledger only; external archive details require the production archive export.'],
+   archiveDetailsIncluded?'This research export includes the automatic archive details rehydrated into the supplied state.':'This research export contains the active ledger only; use /api/state?export=1 for automatic archive details.',
+   'Manually removed observations retain aggregate summaries, not recoverable detail.'],
   config:{...s.config},metrics:diagnostics(s,now),
   observations:s.signals.map(x=>({signature:x.signature,wallet:x.wallet,sourceTime:x.time,detectedAt:x.detected,side:x.side,reason:x.reason,originalPriceUsdcPerSol:x.originalPrice,audit:x.audit??null})),
   virtualTrades:s.portfolios.flatMap(p=>p.trades),virtualPortfolios:s.portfolios,virtualBenchmark:s.benchmark,

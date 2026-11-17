@@ -10,7 +10,7 @@ import {observability} from './helpers/modules.mjs';
 import {loadOfflinePipeline,loadResearchExportProjector} from '../scripts/offline-module-loader.mjs';
 
 const {researchExport}=await import(observability),{runOfflinePipeline,canonicalJsonSha256}=await loadOfflinePipeline(),{projectKnownBranchResearchExport,offlineInputFromProjection}=await loadResearchExportProjector();
-const T=1_800_000_000_000,options={datasetId:'known-export-v1',portfolioConfig:{initialCapitalEur:100,perTradePct:10}},fixture=path.resolve('examples/offline/branch-export-v1.synthetic.json'),projectScript=path.resolve('scripts/project-offline.mjs'),evaluateScript=path.resolve('scripts/evaluate-offline.mjs');
+const T=1_800_000_000_000,options={datasetId:'reconciled-export-v2',portfolioConfig:{initialCapitalEur:100,perTradePct:10}},fixture=path.resolve('examples/offline/reconciled-export-v2.synthetic.json'),projectScript=path.resolve('scripts/project-offline.mjs'),evaluateScript=path.resolve('scripts/evaluate-offline.mjs');
 const clone=value=>structuredClone(value);
 const publicRaw=()=>JSON.parse(fs.readFileSync(fixture,'utf8'));
 const rehash=projection=>{projection.projectionManifest.projectedInputSha256=canonicalJsonSha256(projection.input);return projection;};
