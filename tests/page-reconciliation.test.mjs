@@ -7,6 +7,7 @@ import {core} from './helpers/modules.mjs';
 
 const source=fs.readFileSync('app/page.tsx','utf8')
  .replace("import {useEffect,useState,useRef} from 'react';","const useState=(...args)=>globalThis.pageHooks.useState(...args);const useRef=(...args)=>globalThis.pageHooks.useRef(...args);const useEffect=()=>{};")
+ .replace("import Link from 'next/link';","const Link='a';")
  .replace("from 'lucide-react'",`from '${import.meta.resolve('lucide-react')}'`)
  .replace("from '@/lib/core'",`from '${core}'`)
  .replace("import {LabDiagnostics} from '@/components/lab-diagnostics';","const LabDiagnostics=()=>null;");
@@ -18,7 +19,7 @@ const find=(tree,type,label)=>{const found=elements(tree).find(node=>node.type==
 const field=(tree,label)=>{const parent=find(tree,'label',label),input=elements(parent).find(node=>node.type==='input');assert(input);return input;};
 function harness(state){
  const values=[];let cursor=0;
- const hooks={useState(value){const index=cursor++;if(!Object.hasOwn(values,index))values[index]=index===0?state:value;return [values[index],next=>{values[index]=typeof next==='function'?next(values[index]):next;}];},useRef(value){const index=cursor++;if(!Object.hasOwn(values,index))values[index]={current:value};return values[index];}};
+ const hooks={useState(value){const index=cursor++;if(!Object.hasOwn(values,index))values[index]=index===0?state:typeof value==='function'?value():value;return [values[index],next=>{values[index]=typeof next==='function'?next(values[index]):next;}];},useRef(value){const index=cursor++;if(!Object.hasOwn(values,index))values[index]={current:value};return values[index];}};
  return {render(){cursor=0;globalThis.pageHooks=hooks;return Home();}};
 }
 function fixture(){const state=initial();initPortfolios(state);state.paused=true;state.market={sol:100,eurPerUsd:1,usdcUsd:1,fxDate:'2026-11-06',time:Date.now()};return state;}

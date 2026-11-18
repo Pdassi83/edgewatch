@@ -14,6 +14,9 @@ export function LabDiagnostics({state}:{state:State}){
   if(signal.side==='ignore')return [{signal,strategy:'Parser',code:signal.audit?.parser.code??'legacy_parser_rejection',reason:signal.reason,details:signal.audit?.parser??null}];
   return (signal.audit?.decisions??[]).filter(x=>x.outcome!=='executed_virtual').map(x=>({signal,strategy:x.strategy??'Recolha',code:x.code,reason:decisionLabels[x.code]??x.code,details:x.details}));
  }).slice(-30).reverse();
+ const priceAtCycleEnd=state.market && state.lastRun && state.lastSuccess &&
+  state.market.time>=state.lastRun && state.lastSuccess>=state.market.time
+  ?state.lastSuccess-state.market.time:null;
  return <>
   <div className="alert">Transações observadas: dados reais de uma amostra da Solana. Operações, custos e resultados: exclusivamente virtuais. Cobertura total da blockchain desconhecida.</div>
   {d.warnings.length>0&&<section className="panel diagnostics-warnings" aria-label="Avisos de saúde"><div className="panelhead"><div><h2>Avisos de saúde</h2><p>Leitura informativa; não autoriza nem altera operações virtuais.</p></div></div>{d.warnings.map(w=><div className={'alert '+(w.severity==='critical'?'error':'')} key={w.code}><strong>{w.severity==='critical'?'Crítico':'Atenção'}:</strong> {w.message}</div>)}</section>}
@@ -25,6 +28,7 @@ export function LabDiagnostics({state}:{state:State}){
   </section>
   <section className="panel explain">
    <div className="panelhead"><h2>Qualidade da evidência</h2><a className="textbutton" href="/api/diagnostics?export=1" download>Exportar diagnóstico JSON</a></div>
+   {priceAtCycleEnd!==null&&<p>No fim da última recolha, tinham passado {duration(priceAtCycleEnd)} desde a receção do preço. {priceAtCycleEnd<=180000&&d.freshness.marketReceiptStale?'O preço expirou depois de terminar esse ciclo.':''}</p>}
    <p>A idade do preço na origem ainda não está verificada. O instante de receção é diferente do instante em que o mercado formou o preço. Câmbio BCE: {d.freshness.fxDate??'indisponível'}.</p>
    <p>{d.coverage.currentLedgerObservations} observações no registo ativo · {d.coverage.currentLedgerSupportedSwaps} swaps reconhecidos · {d.coverage.signalsWithStructuredAudit} com diagnóstico estruturado. Os {d.coverage.legacySignalsWithoutStructuredAudit} sinais anteriores conservam o registo original; não reconstruímos decisões retroativamente.</p>
    {d.coverage.externalHistoryNotIncluded&&<p>O diagnóstico contém o registo ativo. A exportação completa em <code>/api/state?export=1</code> reintegra o arquivo automático; observações removidas manualmente conservam apenas resumos.</p>}

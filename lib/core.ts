@@ -41,25 +41,54 @@ export function executionBlocked(s:State,signal:Signal,now=Date.now()):string|nu
 }
 export function initPortfolios(s:State){if(s.portfolios.length)return;for(const [id,label] of [['simple','Cópia simples'],['consistent','Consistência'],['two-loss','Pausa após 2 perdas']])s.portfolios.push({id,label,cash:s.config.capital,positions:[],peak:s.config.capital,day:'',week:'',dayStart:s.config.capital,weekStart:s.config.capital,halted:false,losses:{},trades:[],series:[]});}
 export function validAddress(a:string){if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a))return false;let n=BigInt(0);const alphabet='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';for(const c of a)n=n*BigInt(58)+BigInt(alphabet.indexOf(c));let bytes=0;while(n>BigInt(0)){bytes++;n>>=BigInt(8);}return bytes+(a.match(/^1*/)?.[0].length||0)===32;}
-export function parseTx(tx:any,wallet:string,signature:string,detected=Date.now()):Signal {
+type ParsedInstruction = {
+ programId?: string;
+ accounts?: unknown[];
+ data?: unknown;
+ program?: string;
+ parsed?: {type?: string; info?: {source?: string; destination?: string}};
+};
+type TokenBalance = {
+ owner?: string;
+ accountIndex: number;
+ mint: string;
+ uiTokenAmount: {amount: string; decimals: number};
+};
+export type ParsedTransaction = {
+ blockTime?: number | null;
+ slot?: number;
+ version?: string | number;
+ transaction?: {message?: {
+  accountKeys?: {pubkey: string; signer: boolean}[];
+  instructions?: ParsedInstruction[];
+ }};
+ meta?: {
+  err?: unknown;
+  innerInstructions?: {instructions?: ParsedInstruction[]}[];
+  preTokenBalances?: TokenBalance[];
+  postTokenBalances?: TokenBalance[];
+ } | null;
+} | null;
+
+export function parseTx(tx:ParsedTransaction,wallet:string,signature:string,detected=Date.now()):Signal {
  const result:Signal={signature,wallet,time:(tx?.blockTime||0)*1000,detected,side:'ignore',reason:'Transação ambígua ou fora do par SOL/USDC',originalPrice:null};
  if(!tx?.meta||tx.meta.err){result.reason='Transação falhada ou metadados indisponíveis';return result;}
  const keys=tx.transaction?.message?.accountKeys||[];
- if(!keys.some((k:any)=>k.pubkey===wallet&&k.signer)){result.reason='Carteira não é signatária';return result;}
- const ix=[...(tx.transaction.message.instructions||[]),...(tx.meta.innerInstructions||[]).flatMap((i:any)=>i.instructions||[])];
- const jupiter=ix.some((i:any)=>i.programId===JUP);
- const dflow=ix.some((i:any)=>i.programId===DFLOW&&Array.isArray(i.accounts)&&i.accounts[3]===wallet&&DFLOW_SWAP_DISCRIMINATORS.has(base58Prefix(i.data)));
+ if(!keys.some((k)=>k.pubkey===wallet&&k.signer)){result.reason='Carteira não é signatária';return result;}
+ const ix=[...(tx.transaction?.message?.instructions||[]),...(tx.meta.innerInstructions||[]).flatMap((i)=>i.instructions||[])];
+ const jupiter=ix.some((i)=>i.programId===JUP);
+ const dflow=ix.some((i)=>i.programId===DFLOW&&Array.isArray(i.accounts)&&i.accounts[3]===wallet&&DFLOW_SWAP_DISCRIMINATORS.has(base58Prefix(i.data)));
  if(!jupiter&&!dflow){result.reason='Transferência ou protocolo não suportado';return result;}
  // Conservative: only persistent SPL accounts, no native SOL/rent reconstruction.
  const before=tx.meta.preTokenBalances||[],after=tx.meta.postTokenBalances||[];
- const ownBefore=before.filter((b:any)=>b.owner===wallet),ownAfter=after.filter((b:any)=>b.owner===wallet);
- if(ownBefore.length!==ownAfter.length||ownBefore.some((b:any)=>!ownAfter.some((a:any)=>a.accountIndex===b.accountIndex&&a.mint===b.mint))){result.reason='Criação/fecho de conta: reconciliação de SOL nativo indisponível';return result;}
+ const ownBefore=before.filter((b)=>b.owner===wallet),ownAfter=after.filter((b)=>b.owner===wallet);
+ if(ownBefore.length!==ownAfter.length||ownBefore.some((b)=>!ownAfter.some((a)=>a.accountIndex===b.accountIndex&&a.mint===b.mint))){result.reason='Criação/fecho de conta: reconciliação de SOL nativo indisponível';return result;}
  const delta:Record<string,number>={};
  for(const [balances,sign] of [[ownBefore,-1],[ownAfter,1]] as const)for(const b of balances){const v=Number(b.uiTokenAmount.amount)/10**b.uiTokenAmount.decimals;delta[b.mint]=(delta[b.mint]||0)+sign*v;}
  const changed=Object.entries(delta).filter(([,v])=>Math.abs(v)>1e-9);
  if(changed.length!==2||!delta[SOL]||!delta[USDC]||delta[SOL]*delta[USDC]>=0){result.reason=changed.length===0?'Sem alteração dos saldos SPL da carteira': 'Par ou fluxos fora do swap SOL/USDC suportado';return result;}
  // Reject direct native transfers and LP/complex instructions rather than infer a swap from net balances alone.
- if(ix.some((i:any)=>i.program==='system'&&i.parsed?.type==='transfer'&&(i.parsed?.info?.destination===wallet||(i.parsed?.info?.source===wallet&&!JITO_TIPS.has(i.parsed?.info?.destination))))){result.reason='Fluxos SOL adicionais: operação ambígua';return result;}
+ if(ix.some((i)=>i.program==='system'&&i.parsed?.type==='transfer'&&(i.parsed?.info?.destination===wallet||(i.parsed?.info?.source===wallet&&!JITO_TIPS.has(i.parsed?.info?.destination ?? ''))))){result.reason='Fluxos SOL adicionais: operação ambígua';return result;}
  result.side=delta[SOL]>0?'buy':'sell';result.originalPrice=Math.abs(delta[USDC]/delta[SOL]);result.reason=`Swap ${jupiter?'Jupiter':'DFlow'} SOL embrulhado/USDC confirmado por saldos`;return result;
 }
 export function equity(p:Portfolio,solEur:number){return p.cash+p.positions.reduce((a,x)=>a+x.qty*solEur,0);}
@@ -67,15 +96,15 @@ export function periods(now:number){const d=new Date(now),day=d.toISOString().sl
 export function risk(p:Portfolio,c:Config,price:number,now:number){const e=equity(p,price),{day,week}=periods(now);if(p.day!==day){p.day=day;p.dayStart=p.series.at(-1)?.equity??e;}if(p.week!==week){p.week=week;p.weekStart=p.series.at(-1)?.equity??e;}p.peak=Math.max(p.peak,e);if(e<=p.peak*(1-c.drawdown/100))p.halted=true;if(p.halted)return 'Limite de drawdown: suspensão persistente';if(e<=p.dayStart*(1-c.daily/100))return 'Limite de perda diária';if(e<=p.weekStart*(1-c.weekly/100))return 'Limite de perda semanal';return null;}
 export function eligible(p:Portfolio,wallet:string){if(p.id==='simple')return true;if(p.id==='two-loss')return (p.losses[wallet]||0)<2;return false;}
 export function sampleStats(trades:Trade[]){const pnls=trades.filter(t=>t.pnl!==null).map(t=>t.pnl!);if(!pnls.length)return {n:0,winRate:null,net:0,score:null};const wins=pnls.filter(v=>v>0).length;const n=pnls.length,z=1.96,ph=wins/n;const lower=(ph+z*z/(2*n)-z*Math.sqrt((ph*(1-ph)+z*z/(4*n))/n))/(1+z*z/n);return {n,winRate:wins/n,net:pnls.reduce((a,b)=>a+b,0),score:n>=20?lower*100:null};}
-export function validateConfig(v:any):Config {const base=initial().config;for(const k of Object.keys(base) as (keyof Config)[]){if(typeof v[k]!=='number'||!Number.isFinite(v[k]))throw Error('Configuração inválida');}if(v.capital<10||v.capital>100000||![15,30,60,120].includes(v.interval)||!Number.isInteger(v.maxTraders)||v.maxTraders<1||v.maxTraders>3||v.perTrade<=0||v.perTrade>v.perTrader||v.perTrader>v.perAsset||v.perAsset>50||v.daily<=0||v.daily>2||v.weekly<v.daily||v.weekly>5||v.drawdown<v.weekly||v.drawdown>10||v.slippageBps<0||v.slippageBps>100||v.maxImpact<=0||v.maxImpact>1||v.maxAge<60||v.maxAge>1800)throw Error('Limites inválidos: exposição máxima 50%; perdas 2%/5%/10%; até 3 carteiras.');return Object.fromEntries(Object.keys(base).map(k=>[k,v[k]])) as Config;}
+export function validateConfig(input:unknown):Config {if(!input||typeof input!=='object')throw Error('Configuração inválida');const v=input as Config;const base=initial().config;for(const k of Object.keys(base) as (keyof Config)[]){if(typeof v[k]!=='number'||!Number.isFinite(v[k]))throw Error('Configuração inválida');}if(v.capital<10||v.capital>100000||![15,30,60,120].includes(v.interval)||!Number.isInteger(v.maxTraders)||v.maxTraders<1||v.maxTraders>3||v.perTrade<=0||v.perTrade>v.perTrader||v.perTrader>v.perAsset||v.perAsset>50||v.daily<=0||v.daily>2||v.weekly<v.daily||v.weekly>5||v.drawdown<v.weekly||v.drawdown>10||v.slippageBps<0||v.slippageBps>100||v.maxImpact<=0||v.maxImpact>1||v.maxAge<60||v.maxAge>1800)throw Error('Limites inválidos: exposição máxima 50%; perdas 2%/5%/10%; até 3 carteiras.');return Object.fromEntries((Object.keys(base) as (keyof Config)[]).map(k=>[k,v[k]])) as Config;}
 export function buy(p:Portfolio,c:Config,signal:Signal,qty:number,spend:number,fee:number,price:number,quote:unknown,now:number){const e=equity(p,price),walletExposure=p.positions.filter(x=>x.wallet===signal.wallet).reduce((a,x)=>a+x.qty*price,0),asset=p.positions.reduce((a,x)=>a+x.qty*price,0);if(!Number.isFinite(qty)||qty<=0||!Number.isFinite(spend)||spend<=0||!Number.isFinite(fee)||fee<0||spend+fee>p.cash||spend+fee>e*c.perTrade/100+1e-6||walletExposure+spend+fee>e*c.perTrader/100||asset+spend+fee>e*c.perAsset/100)return false;
  if(p.trades.some(t=>t.signature===signal.signature&&t.wallet===signal.wallet))return false;
  p.cash-=spend+fee;p.positions.push({wallet:signal.wallet,qty,cost:spend+fee,opened:now});p.trades.push({id:`${p.id}:${signal.wallet}:${signal.signature}`,strategy:p.id,wallet:signal.wallet,signature:signal.signature,side:'buy',time:now,sourceTime:signal.time,detected:signal.detected,qty,price:spend/qty,originalPrice:signal.originalPrice,cost:fee,slippage:c.slippageBps,pnl:null,reason:'Compra virtual ao preço de cotação posterior à deteção',quote});return true;}
 export function sell(p:Portfolio,signal:Signal,proceeds:number,fee:number,quote:unknown,now:number,slippage:number){const positions=p.positions.filter(x=>x.wallet===signal.wallet),qty=positions.reduce((a,x)=>a+x.qty,0),cost=positions.reduce((a,x)=>a+x.cost,0);if(qty<=0||!Number.isFinite(proceeds)||proceeds<=0||!Number.isFinite(fee)||fee<0||p.cash+proceeds<fee||p.trades.some(t=>t.signature===signal.signature&&t.wallet===signal.wallet))return false;const pnl=proceeds-fee-cost;p.cash+=proceeds-fee;p.positions=p.positions.filter(x=>x.wallet!==signal.wallet);p.losses[signal.wallet]=pnl<0?(p.losses[signal.wallet]||0)+1:0;p.trades.push({id:`${p.id}:${signal.wallet}:${signal.signature}`,strategy:p.id,wallet:signal.wallet,signature:signal.signature,side:'sell',time:now,sourceTime:signal.time,detected:signal.detected,qty,price:proceeds/qty,originalPrice:signal.originalPrice,cost:fee,slippage,pnl,reason:'Saída total na primeira venda observada do trader',quote});return true;}
 
 // A signer is only a candidate when its own balances prove a supported swap.
-export function candidateSignals(tx:any,signature:string):Signal[]{
- const signers=[...new Set<string>((tx?.transaction?.message?.accountKeys||[]).filter((k:any)=>k.signer&&validAddress(k.pubkey)).map((k:any)=>k.pubkey))];
+export function candidateSignals(tx:ParsedTransaction,signature:string):Signal[]{
+ const signers=[...new Set<string>((tx?.transaction?.message?.accountKeys||[]).filter((k)=>k.signer&&validAddress(k.pubkey)).map((k)=>k.pubkey))];
  return signers.map(address=>parseTx(tx,address,signature)).filter(signal=>signal.side!=='ignore');
 }
 export function ignoredReasons(signals:Signal[],archived:Record<string,number>={}){
@@ -83,8 +112,8 @@ export function ignoredReasons(signals:Signal[],archived:Record<string,number>={
  return Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt'));
 }
 
-export function candidateReasons(tx:any,signature:string):string[]{
- const signers=[...new Set<string>((tx?.transaction?.message?.accountKeys||[]).filter((k:any)=>k.signer&&validAddress(k.pubkey)).map((k:any)=>k.pubkey))];
+export function candidateReasons(tx:ParsedTransaction,signature:string):string[]{
+ const signers=[...new Set<string>((tx?.transaction?.message?.accountKeys||[]).filter((k)=>k.signer&&validAddress(k.pubkey)).map((k)=>k.pubkey))];
  return [...new Set(signers.map(address=>parseTx(tx,address,signature)).filter(s=>s.side==='ignore').map(s=>s.reason))];
 }
 
