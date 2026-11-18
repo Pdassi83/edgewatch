@@ -1,6 +1,10 @@
 import {env} from 'cloudflare:workers';
 import {initial,archiveRecent,stateFingerprint,type State,type Signal,type ArchiveChunk} from './core';
-const db=()=> (env as any).DB as D1Database;
+function db(){
+ const database = (env as Cloudflare.Env).DB;
+ if(!database)throw Error('Base de dados indisponível');
+ return database;
+}
 export async function readState():Promise<State>{const r=await db().prepare('SELECT payload FROM edge_state WHERE id=1').first<{payload:string}>();return r?JSON.parse(r.payload):initial();}
 /** Read one consistent snapshot: a concurrent collection cannot hide archived records. */
 export async function readExport(){

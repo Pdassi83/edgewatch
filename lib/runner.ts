@@ -1,7 +1,9 @@
 import {Providers} from './providers';
 import {mutate,readState} from './store';
-import {SOL,USDC,JUP,DFLOW,parseTx,candidateSignals,candidateReasons,initPortfolios,equity,risk,sampleStats,buy,sell,log,validAddress,validateConfig,cleanupIgnored,executionBlocked,observationTotals,type State,type Signal} from './core';
+import {SOL,USDC,JUP,DFLOW,parseTx,candidateSignals,candidateReasons,initPortfolios,equity,risk,sampleStats,buy,sell,log,validAddress,validateConfig,cleanupIgnored,executionBlocked,observationTotals,type State,type Signal,type ParsedTransaction} from './core';
 import {observeSignal,decision,decisionLabels,failureCode,riskCode,buyEvidence,beginCycle,finishCycle} from './observability';
+
+type SignatureEntry = {signature: string; err?: unknown};
 
 function skipUnresolved(s:State,signal:Signal,code:string,stage:'market'|'quote'){
  for(const p of s.portfolios)if(!signal.audit?.decisions.some(d=>d.strategy===p.id))decision(s,signal,p.id,stage,'not_evaluated',code);
@@ -67,22 +69,22 @@ export async function run(){return mutate(async s=>{const now=Date.now();if(s.pa
  const w=ordered[wi],walletBudget=Math.min(4,Math.ceil(transactionBudget/(ordered.length-wi)));
  if(w.pending&&!w.pending.signatures.length){if(w.pending.through)w.cursor=w.pending.through;delete w.pending;}
  if(!w.pending){
-  const items=await api.rpc('getSignaturesForAddress',[w.address,{limit:128,commitment:'finalized'}]);if(!Array.isArray(items))throw Error('Lista de assinaturas inválida');if(!items.length)continue;
-  const first=!w.cursor,index=items.findIndex((x:any)=>x.signature===w.cursor);
+  const items=await api.rpc<SignatureEntry[]>('getSignaturesForAddress',[w.address,{limit:128,commitment:'finalized'}]);if(!Array.isArray(items))throw Error('Lista de assinaturas inválida');if(!items.length)continue;
+  const first=!w.cursor,index=items.findIndex((x)=>x.signature===w.cursor);
   if(!first&&index<0){w.gap=true;log(s,`Lacuna de recolha em ${w.address.slice(0,8)}: janela de 128 transações excedida; sem reconstrução histórica`);}
-  const recent=(index>=0?items.slice(0,index):items).filter((x:any)=>typeof x.signature==='string');if(!recent.length)continue;
-  const candidates=recent.filter((x:any)=>!x.err),failed=recent.length-candidates.length;
+  const recent=(index>=0?items.slice(0,index):items).filter((x)=>typeof x.signature==='string');if(!recent.length)continue;
+  const candidates=recent.filter((x)=>!x.err),failed=recent.length-candidates.length;
   if(failed)log(s,`${w.address.slice(0,8)}: ${failed} transações falhadas ignoradas antes da leitura`);
   if(candidates.length>walletBudget)log(s,`${w.address.slice(0,8)}: ${candidates.length-walletBudget} transações ficam pendentes; lote preservado para os próximos ciclos`);
   w.collectionWindow={listedAt:Date.now(),limit:128,listed:items.length,cursorFound:first?null:index>=0,eligibleInWindow:candidates.length,queued:candidates.length,omittedFromBatch:0,windowMayBeTruncated:items.length>=128};
-  w.pending={signatures:candidates.slice().reverse().map((x:any)=>x.signature),historical:first,through:recent[0].signature};
+  w.pending={signatures:candidates.slice().reverse().map((x)=>x.signature),historical:first,through:recent[0].signature};
  }
  // Preserve the complete queue; only transaction reads are bounded per cycle.
  let walletReads=0;
  while(w.pending.signatures.length&&walletReads<walletBudget){
   const signature=w.pending.signatures[0];
   if(!s.signals.some(x=>x.wallet===w.address&&x.signature===signature)){
-   const tx=await api.rpc('getTransaction',[signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
+   const tx=await api.rpc<ParsedTransaction>('getTransaction',[signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
    walletReads++;transactionBudget--;
    if(!tx)throw Error('Transação ainda indisponível; ciclo será retomado');
    const signal=parseTx(tx,w.address,signature);observeSignal(signal,tx,w.pending.historical);s.signals.push(signal);w.observed++;if(signal.side!=='ignore'){w.swaps++;w.validatedAt=Date.now();w.status='Swap compatível confirmado';}else{log(s,`${signature.slice(0,10)}: ignorada; ${signal.reason}`);if(!w.swaps)w.status='Sem swaps suportados';}
@@ -100,29 +102,29 @@ export async function run(){return mutate(async s=>{const now=Date.now();if(s.pa
  if(s.market&&!marketError){for(const p of s.portfolios){risk(p,s.config,s.market.sol*s.market.eurPerUsd,Date.now());p.series.push({time:Date.now(),equity:equity(p,s.market.sol*s.market.eurPerUsd)});}}
  for(const limit of Object.values(s.providerLimits||{})){if(limit.until<=Date.now())limit.failures=0;}s.lastSuccess=Date.now();s.status=marketError?'Recolha ativa · simulação bloqueada':'Recolha concluída';log(s,`Ciclo ${s.runCount}: slot ${slot}; ${api.calls} pedidos contabilizados`);finishCycle(s,api.calls,marketError?'market_blocked':'completed',marketError?Error(marketError):undefined);
  }catch(e){s.status='Circuito interrompido';log(s,(e as Error).message);finishCycle(s,api.calls,'failed',e);}return {status:s.status,wallets:s.wallets.length,signals:observationTotals(s).signals,pending:observationTotals(s).pending,lastSuccess:s.lastSuccess};});}
-export async function action(body:any){if(body.action==='run')return run();if(body.action==='read')return readState();return mutate(async s=>{if(body.action==='cleanup-ignored')return cleanupIgnored(s,body.backupFingerprint);if(body.action==='pause'){s.paused=!s.paused;log(s,s.paused?'Pausa manual':'Retoma manual');}else if(body.action==='wallet'){const address=String(body.address||'').trim();if(!validAddress(address))throw Error('Endereço Solana inválido');if(s.wallets.some(w=>w.address===address))throw Error('Carteira já acompanhada');if(s.wallets.length>=s.config.maxTraders)throw Error('Limite de carteiras atingido');s.wallets.push({address,added:Date.now(),cursor:null,status:'Em observação',observed:0,swaps:0,gap:false});log(s,`Carteira ${address} adicionada para observação`);}else if(body.action==='config'){const c=validateConfig(body.config);if(s.portfolios.length&&c.capital!==s.config.capital)throw Error('Capital bloqueado após o início para preservar comparabilidade');s.config=c;log(s,'Limites atualizados. O intervalo é um mínimo; o agendamento cloud é independente.');}else throw Error('Ação desconhecida');return {ok:true};});}
+export async function action(body:{action?: string; address?: unknown; config?: unknown; backupFingerprint?: unknown}){if(body.action==='run')return run();if(body.action==='read')return readState();return mutate(async s=>{if(body.action==='cleanup-ignored')return cleanupIgnored(s,body.backupFingerprint);if(body.action==='pause'){s.paused=!s.paused;log(s,s.paused?'Pausa manual':'Retoma manual');}else if(body.action==='wallet'){const address=String(body.address||'').trim();if(!validAddress(address))throw Error('Endereço Solana inválido');if(s.wallets.some(w=>w.address===address))throw Error('Carteira já acompanhada');if(s.wallets.length>=s.config.maxTraders)throw Error('Limite de carteiras atingido');s.wallets.push({address,added:Date.now(),cursor:null,status:'Em observação',observed:0,swaps:0,gap:false});log(s,`Carteira ${address} adicionada para observação`);}else if(body.action==='config'){const c=validateConfig(body.config);if(s.portfolios.length&&c.capital!==s.config.capital)throw Error('Capital bloqueado após o início para preservar comparabilidade');s.config=c;log(s,'Limites atualizados. O intervalo é um mínimo; o agendamento cloud é independente.');}else throw Error('Ação desconhecida');return {ok:true};});}
 
 export async function discover(s:State,api:Providers){
  if(s.wallets.length>=s.config.maxTraders)return;
  // Prioritize existing portfolios. Discovery shares the same request/day/time limits.
  if(api.calls>26){log(s,'Descoberta adiada: orçamento reservado à monitorização');return;}
  const d=s.discovery??={seen:[],scanned:0,rejected:0,lastScan:0,reasons:{}};
- const queues:any[][]=[];
+ const queues:SignatureEntry[][]=[];
  for(const program of [JUP,DFLOW]){
-  const recent=await api.rpc('getSignaturesForAddress',[program,{limit:64,commitment:'finalized'}]);
+  const recent=await api.rpc<SignatureEntry[]>('getSignaturesForAddress',[program,{limit:64,commitment:'finalized'}]);
   if(!Array.isArray(recent))throw Error('Lista de descoberta inválida');
-  queues.push(recent.filter((x:any)=>typeof x.signature==='string'&&!x.err&&!d.seen.includes(x.signature)));
+  queues.push(recent.filter((x)=>typeof x.signature==='string'&&!x.err&&!d.seen.includes(x.signature)));
  }
- const items:any[]=[],unique=new Set<string>(),budget=Math.min(8,Math.max(0,36-api.calls));
+ const items:SignatureEntry[]=[],unique=new Set<string>(),budget=Math.min(8,Math.max(0,36-api.calls));
  while(items.length<budget&&queues.some(q=>q.length)){
   for(const q of queues){const item=q.shift();if(item&&!unique.has(item.signature)){unique.add(item.signature);items.push(item);}if(items.length>=budget)break;}
  }
  const scannedBefore=d.scanned;
  for(const item of items){
   if(s.wallets.length>=s.config.maxTraders)break;
-  let reason='Transação falhada na origem';let candidates:Signal[]=[];let candidateTx:any=null;
+  let reason='Transação falhada na origem';let candidates:Signal[]=[];let candidateTx:ParsedTransaction=null;
   if(!item.err){
-   const tx=await api.rpc('getTransaction',[item.signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
+   const tx=await api.rpc<ParsedTransaction>('getTransaction',[item.signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:1,commitment:'finalized'}]);
    if(!tx)throw Error('Transação de descoberta ainda indisponível');
    candidateTx=tx;candidates=candidateSignals(tx,item.signature);reason=candidateReasons(tx,item.signature).join(' · ')||'Sem signatários válidos';
   }

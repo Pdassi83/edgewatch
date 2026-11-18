@@ -1,4 +1,4 @@
-import {equity,type State,type Signal,type Portfolio,type SignalDecision,type DiagnosticDetails} from './core';
+import {equity,type ParsedTransaction,type State,type Signal,type Portfolio,type SignalDecision,type DiagnosticDetails} from './core';
 
 const parserCodes:Record<string,string>={
  'Transação falhada ou metadados indisponíveis':'parser_metadata_or_failed',
@@ -36,13 +36,13 @@ const pendingCount=(pending:unknown)=>{
 };
 
 /** Only allowlisted evidence, never the raw RPC response or provider URLs. */
-export function observeSignal(signal:Signal,tx:any,historical:boolean){
- const own=(balances:any)=>Array.isArray(balances)?balances.filter(b=>b?.owner===signal.wallet):[];
+export function observeSignal(signal:Signal,tx:ParsedTransaction,historical:boolean){
+ const own=(balances:NonNullable<NonNullable<ParsedTransaction>['meta']>['preTokenBalances'])=>Array.isArray(balances)?balances.filter(b=>b?.owner===signal.wallet):[];
  const before=own(tx?.meta?.preTokenBalances),after=own(tx?.meta?.postTokenBalances);
  signal.audit={version:1,historical,parser:{
   code:signal.side==='ignore'?(parserCodes[signal.reason]||'parser_ambiguous'):'parser_supported_swap',
   slot:numberOrNull(tx?.slot),transactionVersion:tx?.version==='legacy'?'legacy':numberOrNull(tx?.version),
-  signer:Array.isArray(tx?.transaction?.message?.accountKeys)&&tx.transaction.message.accountKeys.some((k:any)=>k?.pubkey===signal.wallet&&k.signer===true),
+  signer:Array.isArray(tx?.transaction?.message?.accountKeys)&&tx.transaction.message.accountKeys.some((k)=>k?.pubkey===signal.wallet&&k.signer===true),
   preAccounts:before.length,postAccounts:after.length,
   invalidBalances:[...before,...after].filter(b=>!Number.isFinite(Number(b?.uiTokenAmount?.amount))||!Number.isInteger(b?.uiTokenAmount?.decimals)).length,
  },decisions:[]};

@@ -1,0 +1,153 @@
+{
+  "synthetic": true,
+  "origin": "https://edgewatch-scout-validacao.pdassi.chatgpt.site",
+  "projectId": "appgprj_6afca2aaca5881919667aab2a031e3c0",
+  "mcpTransport": "isolated_worker_adapter",
+  "checks": [
+    "synthetic staging identity",
+    "anonymous API access rejected",
+    "synthetic fixture persisted",
+    "active state and no-store",
+    "only synthetic wallets in the isolated database",
+    "automatic archive prunes active detail",
+    "archive rehydration has no duplicates",
+    "diagnostic preserves cumulative totals",
+    "archived snapshots remain explicitly incomplete",
+    "research export v2",
+    "MCP gateway requires its separate OAuth authorization",
+    "MCP status preserves counters and redacts pending evidence",
+    "HTTP collection disabled in staging",
+    "MCP collection disabled without state changes",
+    "fixture cannot overwrite existing experiment",
+    "cross-origin actions rejected",
+    "configuration survives persisted read",
+    "cleanup rejects stale backup fingerprint",
+    "cleanup requires fresh export and preserves swaps",
+    "cleanup persists archive, queue and virtual capital"
+  ],
+  "passed": 20,
+  "requests": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 25308,
+      "elapsedMs": 6130
+    },
+    {
+      "path": "/api/state",
+      "status": 403,
+      "bytes": 735,
+      "elapsedMs": 4635
+    },
+    {
+      "path": "/api/staging-fixture",
+      "status": 409,
+      "bytes": 58,
+      "elapsedMs": 5727
+    },
+    {
+      "path": "/api/state",
+      "status": 200,
+      "bytes": 264727,
+      "elapsedMs": 5698
+    },
+    {
+      "path": "/api/state?export=1",
+      "status": 200,
+      "bytes": 477970,
+      "elapsedMs": 5748
+    },
+    {
+      "path": "/api/diagnostics",
+      "status": 200,
+      "bytes": 4955,
+      "elapsedMs": 4961
+    },
+    {
+      "path": "/api/diagnostics?export=1",
+      "status": 200,
+      "bytes": 185717,
+      "elapsedMs": 5509
+    },
+    {
+      "path": "/mcp",
+      "status": 401,
+      "bytes": 12,
+      "elapsedMs": 6528
+    },
+    {
+      "path": "/api/staging-mcp",
+      "status": 200,
+      "bytes": 7902,
+      "elapsedMs": 5051
+    },
+    {
+      "path": "/api/action",
+      "status": 409,
+      "bytes": 87,
+      "elapsedMs": 5328
+    },
+    {
+      "path": "/api/staging-mcp",
+      "status": 200,
+      "bytes": 181,
+      "elapsedMs": 4943
+    },
+    {
+      "path": "/api/state",
+      "status": 200,
+      "bytes": 264727,
+      "elapsedMs": 6351
+    },
+    {
+      "path": "/api/staging-fixture",
+      "status": 409,
+      "bytes": 58,
+      "elapsedMs": 5893
+    },
+    {
+      "path": "/api/action",
+      "status": 403,
+      "bytes": 27,
+      "elapsedMs": 6517
+    },
+    {
+      "path": "/api/action",
+      "status": 200,
+      "bytes": 11,
+      "elapsedMs": 6561
+    },
+    {
+      "path": "/api/state",
+      "status": 200,
+      "bytes": 264846,
+      "elapsedMs": 5847
+    },
+    {
+      "path": "/api/action",
+      "status": 400,
+      "bytes": 94,
+      "elapsedMs": 6530
+    },
+    {
+      "path": "/api/state?export=1",
+      "status": 200,
+      "bytes": 478089,
+      "elapsedMs": 5183
+    },
+    {
+      "path": "/api/action",
+      "status": 200,
+      "bytes": 131,
+      "elapsedMs": 6433
+    },
+    {
+      "path": "/api/state",
+      "status": 200,
+      "bytes": 159576,
+      "elapsedMs": 5233
+    }
+  ],
+  "maximumPayloadBytes": 478089,
+  "externalCollectionCalls": 0
+}
