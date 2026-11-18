@@ -42,3 +42,16 @@ test('API de estado mantém exportação completa separada do registo ativo',asy
  assert.equal(active.headers.get('cache-control'),'no-store');assert.equal(exported.headers.get('cache-control'),'no-store');assert.deepEqual(await active.json(),diagnosticState);assert.deepEqual(await exported.json(),fullExport);assert.equal(stateReads,1);assert.equal(exportReads,1);
  globalThis.failStateRead=true;const failed=await stateGET(new Request('https://synthetic.invalid/api/state'));assert.equal(failed.status,503);assert(!JSON.stringify(await failed.json()).includes('private-database'));
 });
+
+test('BRAIN receives aggregate evidence without wallet identifiers', async()=>{
+ setup();
+ const now=Date.now();
+ diagnosticState.wallets=[{address:'synthetic-private-address',added:now-1,cursor:'synthetic-private-cursor',status:'fixture',observed:12,swaps:2,gap:true}];
+ const res=await GET(new Request('https://synthetic.invalid/api/diagnostics?brain=1'));
+ const evidence=await res.json();
+ assert.equal(res.status,200);
+ assert.equal(evidence.mode,'observe_only');
+ assert.deepEqual(evidence.coverage.wallets,[{observed:12,supportedSwaps:2,knownGap:true,pending:0}]);
+ assert(!JSON.stringify(evidence).includes('synthetic-private-'));
+ assert.equal(diagnosticReads,1);
+});

@@ -8,6 +8,25 @@ type SignatureEntry = {signature: string; err?: unknown};
 function skipUnresolved(s:State,signal:Signal,code:string,stage:'market'|'quote'){
  for(const p of s.portfolios)if(!signal.audit?.decisions.some(d=>d.strategy===p.id))decision(s,signal,p.id,stage,'not_evaluated',code);
 }
+function quoteEvidence(
+ quote: Awaited<ReturnType<Providers['quote']>>,
+ inputMint: string,
+ outputMint: string,
+ inputAtomic: number,
+ feeEstimateEur: number,
+ slippageBps: number,
+) {
+ return {
+  quoteReceivedAt: quote.receivedAt ?? null,
+  quoteInputMint: inputMint,
+  quoteOutputMint: outputMint,
+  quoteInputAtomic: String(inputAtomic),
+  quoteOutputAtomic: quote.outAmount,
+  feeEstimateEur,
+  adverseSlippageBps: slippageBps,
+ };
+}
+
 async function simulate(s:State,api:Providers,signal:Signal,feeSol:number){
  if(signal.side==='ignore')return;
  const block=executionBlocked(s,signal);
@@ -37,10 +56,10 @@ async function simulate(s:State,api:Providers,signal:Signal,feeSol:number){
    try{q=await api.quote(USDC,SOL,String(input));}
    catch(error){decision(s,signal,p.id,'quote','rejected',failureCode(error),{inputUsdcAtomic:input,maxImpactPct:s.config.maxImpact});throw error;}
    const afterQuote=executionBlocked(s,signal);
-   if(afterQuote){log(s,`${p.label}: ${decisionLabels[afterQuote]} após a cotação`);decision(s,signal,p.id,'market','rejected',afterQuote,{afterQuote:true});skipUnresolved(s,signal,afterQuote,'market');return;}
+   if(afterQuote){log(s,`${p.label}: ${decisionLabels[afterQuote]} após a cotação`);decision(s,signal,p.id,'market','rejected',afterQuote,{afterQuote:true,...quoteEvidence(q,USDC,SOL,input,fee,s.config.slippageBps)});skipUnresolved(s,signal,afterQuote,'market');return;}
    const qty=Number(q.outAmount)/1e9*(1-s.config.slippageBps/10000),spend=input/1e6*fx;
    const evidence=buyEvidence(p,s,signal,qty,spend,fee,price),executed=buy(p,s.config,signal,qty,spend,fee,price,q,Date.now());
-   decision(s,signal,p.id,'accounting',executed?'executed_virtual':'rejected',executed?'virtual_buy':'buy_accounting_rejected',evidence);
+   decision(s,signal,p.id,'accounting',executed?'executed_virtual':'rejected',executed?'virtual_buy':'buy_accounting_rejected',{...evidence,...quoteEvidence(q,USDC,SOL,input,fee,s.config.slippageBps)});
    if(!executed)log(s,`${p.label}: compra recusada por exposição/duplicação`);
   }else{
    const qty=p.positions.filter(x=>x.wallet===signal.wallet).reduce((a,x)=>a+x.qty,0);
@@ -49,11 +68,11 @@ async function simulate(s:State,api:Providers,signal:Signal,feeSol:number){
    try{q=await api.quote(SOL,USDC,String(raw));}
    catch(error){decision(s,signal,p.id,'quote','rejected',failureCode(error),{inputSolLamports:raw,maxImpactPct:s.config.maxImpact});throw error;}
    const afterQuote=executionBlocked(s,signal);
-   if(afterQuote){log(s,`${p.label}: ${decisionLabels[afterQuote]} após a cotação`);decision(s,signal,p.id,'market','rejected',afterQuote,{afterQuote:true});skipUnresolved(s,signal,afterQuote,'market');return;}
+   if(afterQuote){log(s,`${p.label}: ${decisionLabels[afterQuote]} após a cotação`);decision(s,signal,p.id,'market','rejected',afterQuote,{afterQuote:true,...quoteEvidence(q,SOL,USDC,raw,feeSol*price,s.config.slippageBps)});skipUnresolved(s,signal,afterQuote,'market');return;}
    const proceeds=Number(q.outAmount)/1e6*fx*(1-s.config.slippageBps/10000),fee=feeSol*price;
    const evidence={qty,proceedsEur:proceeds,feeEstimateEur:fee,cashEur:p.cash,duplicate:p.trades.some(t=>t.signature===signal.signature&&t.wallet===signal.wallet)};
    const executed=sell(p,signal,proceeds,fee,q,Date.now(),s.config.slippageBps);
-   decision(s,signal,p.id,'accounting',executed?'executed_virtual':'rejected',executed?'virtual_sell':'sell_accounting_rejected',evidence);
+   decision(s,signal,p.id,'accounting',executed?'executed_virtual':'rejected',executed?'virtual_sell':'sell_accounting_rejected',{...evidence,...quoteEvidence(q,SOL,USDC,raw,fee,s.config.slippageBps)});
   }
  }
  }catch(error){skipUnresolved(s,signal,'cycle_interrupted','quote');throw error;}

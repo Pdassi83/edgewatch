@@ -50,7 +50,20 @@ export function observeSignal(signal:Signal,tx:ParsedTransaction,historical:bool
 
 export function decision(s:State,signal:Signal,strategy:string|null,stage:SignalDecision['stage'],outcome:SignalDecision['outcome'],code:string,details:DiagnosticDetails={},now=Date.now()){
  if(!signal.audit)return; // Old observations are not retrospectively assigned decisions.
- const evidence:DiagnosticDetails={signalAgeMs:age(signal.time,now),marketReceiptAgeMs:age(s.market?.time,now),maxSignalAgeMs:s.config.maxAge*1000,maxMarketReceiptAgeMs:180000,...details};
+ const market = s.market;
+ const marketKnown = age(market?.time, now) !== null;
+ const evidence: DiagnosticDetails = {
+  signalAgeMs: age(signal.time, now),
+  marketReceiptAgeMs: age(market?.time, now),
+  maxSignalAgeMs: s.config.maxAge * 1000,
+  maxMarketReceiptAgeMs: 180000,
+  marketReceivedAt: marketKnown ? market!.time : null,
+  marketSolUsd: marketKnown ? market!.sol : null,
+  marketUsdcUsd: marketKnown ? market!.usdcUsd : null,
+  marketEurPerUsd: marketKnown ? market!.eurPerUsd : null,
+  marketFxDate: marketKnown ? market!.fxDate : null,
+  ...details,
+ };
  for(const key of Object.keys(evidence))if(typeof evidence[key]==='number'&&!Number.isFinite(evidence[key]))evidence[key]=null;
  signal.audit.decisions.push({strategy,stage,outcome,code,time:now,details:evidence});
 }
@@ -184,5 +197,29 @@ export function researchExport(s:State,now=Date.now()){
   config:{...s.config},metrics:diagnostics(s,now),
   observations:s.signals.map(x=>({signature:x.signature,wallet:x.wallet,sourceTime:x.time,detectedAt:x.detected,side:x.side,reason:x.reason,originalPriceUsdcPerSol:x.originalPrice,audit:x.audit??null})),
   virtualTrades:s.portfolios.flatMap(p=>p.trades),virtualPortfolios:s.portfolios,virtualBenchmark:s.benchmark,
+ };
+}
+
+/** Aggregate evidence for an on-demand BRAIN review, without wallet addresses or signatures. */
+export function brainEvidence(state: State, now = Date.now()) {
+ const report = diagnostics(state, now);
+ return {
+  schemaVersion: 1,
+  mode: 'observe_only',
+  asOf: now,
+  freshness: report.freshness,
+  coverage: {
+   activeObservations: report.coverage.currentLedgerObservations,
+   activeSupportedSwaps: report.coverage.currentLedgerSupportedSwaps,
+   cumulativeObservations: report.coverage.cumulativeLedgerObservations,
+   pending: report.coverage.pending,
+   wallets: report.coverage.wallets.map(({observed, supportedSwaps, knownGap, pending}) =>
+    ({observed, supportedSwaps, knownGap, pending})),
+  },
+  decisions: report.decisions,
+  cycle: report.requests.telemetry?.lastCycle ?? null,
+  virtualResults: report.portfolios.map(({id, trades, closed, realizedPnlEur}) =>
+   ({id, trades, closed, realizedPnlEur})),
+  warningCodes: report.warnings.map(({code}) => code),
  };
 }
