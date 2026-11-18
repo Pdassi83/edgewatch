@@ -34,7 +34,14 @@ test('cada estratégia recebe uma decisão auditável mantendo as compras virtua
 });
 test('limites de idade são reaplicados depois da cotação sem criar a operação',async t=>{
  const [s,f]=setup(t);f.quoteDelay=180001;await run();assert(s.portfolios.every(p=>p.trades.length===0));
- assert.equal(s.signals[0].audit.decisions[0].code,'market_stale');assert.equal(s.signals[0].audit.decisions[0].details.afterQuote,true);assert.equal(f.quotes,1);
+ assert.equal(s.signals[0].audit.decisions[0].code,'market_stale');assert.equal(s.signals[0].audit.decisions[0].details.afterQuote,true);
+ const evidence=s.signals[0].audit.decisions[0].details;
+ assert.equal(evidence.marketReceivedAt,f.market.time);
+ assert.equal(evidence.quoteReceivedAt,f.now);
+ assert.equal(evidence.quoteInputMint,USDC);
+ assert.equal(evidence.quoteOutputMint,SOL);
+ assert.match(evidence.quoteOutputAtomic,/^[0-9]+$/);
+assert.equal(f.quotes,1);
  assert.equal(s.signals[0].audit.decisions.filter(x=>x.outcome==='not_evaluated').length,2);
 });
 test('sinal que envelhece durante a cotação não contorna maxAge',async t=>{
